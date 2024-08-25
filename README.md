@@ -1,8 +1,12 @@
-## A Lightweight, Customizable AI Agent Framework
+## Building an Advanced AI Agent with OpenAI, MongoDB, and DuckDuckGo
+
+![](https://upload.wikimedia.org/wikipedia/commons/a/aa/AI_Agent_Overview.png)
 
 **Introducing `vanilla-agents`**
 
-In the realm of conversational AI, having a robust and flexible framework is essential. `vanilla-agents` provides just that, offering a lightweight and customizable implementation that empowers you to leverage the capabilities of your preferred LLM provider without the need for additional, often bloated libraries.
+`vanilla-agents` provides a lightweight and customizable implementation that empowers you to leverage the capabilities of your preferred LLM provider without the need for additional, often bloated libraries. 
+
+With just a few well-placed lines of code, you can take control and build a custom AI agent that bends to your will and can implement custom processes/workflows. 
 
 **Key Components and How They Work:**
 
@@ -24,3 +28,40 @@ In the realm of conversational AI, having a robust and flexible framework is ess
 2. **Tool Selection:** The `AdvancedAgent` analyzes the prompt and determines the most suitable tools to use.
 3. **Task Execution:** The selected tools are employed to carry out the necessary tasks.
 4. **Response Generation:** The `AdvancedAgent` combines the results from the tools and generates a response.
+
+**The Foundation: Setting Up the Environment**
+
+Our first step is to set up our environment. This involves importing necessary libraries and defining some constants. We're using libraries like `openai` for AI model interaction, `pymongo` for database management, `duckduckgo_search` for web search, and `youtube_transcript_api` for fetching YouTube video transcripts.
+
+**The Memory: Conversation History Management**
+
+As our AI assistant interacts with users, it's crucial to remember past conversations. This memory allows the assistant to provide context-aware responses. We create a `ConversationHistory` class to manage this memory, storing it either in a local list or a MongoDB database for more persistent storage.
+
+**The Skills: Tools and Tasks**
+
+Our AI assistant needs skills to perform tasks. We represent these skills as `Tool` objects. For instance, we have a `SearchTool` that uses the DuckDuckGo search engine to retrieve information from the web. 
+
+**The Actions: Tasks**
+
+Tasks are the actions that our AI assistant can perform using its skills. For example, a task could be to search for information on a specific topic and summarize the findings. Each task is represented as an instance of the `Task` class, which includes a description of the task, the agent that will perform the task, the tools that the agent will use, and the input that the task will process.
+
+**The Brain: Advanced Agent and Custom Process**
+
+The `AdvancedAgent` is the brain of our AI assistant. It orchestrates the use of tools and tasks, generates responses to user prompts, and maintains the conversation history. 
+
+**The Workflow: Custom Process**
+
+Sometimes, our AI assistant needs to perform a series of tasks in a specific order. That's where the `CustomProcess` class comes in. It allows us to chain tasks together to create more complex workflows. For instance, we might have a process that involves searching for information, analyzing the results, and then summarizing the findings.
+
+**The Adventure: Running the AI Assistant**
+
+With all the components in place, it's time to set our AI assistant in motion. We create tasks, chain them into a process, and set the process running. As the tasks are performed, our AI assistant interacts with the user, remembers the conversation, and uses its tools to generate responses.
+
+
+## **`response_format={"type": "json_object"}`**
+
+By structuring responses in JSON format, you're essentially providing a blueprint for how the AI's thoughts can be interpreted and processed. The use of `response_format={"type": "json_object"}` when interacting with the OpenAI API is crucial for providing clear instructions to the AI model and receiving structured responses. Let's delve deeper into its significance and benefits.
+
+## Conclusion
+
+Now that you've seen the foundation for building your own AI agent, it's time to experiment! 

@@ -4,6 +4,8 @@
 
 **Introducing `vanilla-agents`**
 
+**User Input -> Start Process -> Task Execution -> Tool Selection -> Complete Process -> Response Generation**
+
 `vanilla-agents` provides a lightweight and customizable implementation that empowers you to leverage the capabilities of your preferred LLM provider without the need for additional, often bloated libraries. 
 
 With just a few well-placed lines of code, you can take control and build a custom AI agent that bends to your will and can implement custom processes/workflows. 

@@ -24,7 +24,3 @@ In the realm of conversational AI, having a robust and flexible framework is ess
 2. **Tool Selection:** The `AdvancedAgent` analyzes the prompt and determines the most suitable tools to use.
 3. **Task Execution:** The selected tools are employed to carry out the necessary tasks.
 4. **Response Generation:** The `AdvancedAgent` combines the results from the tools and generates a response.
-
-**Conclusion:**
-
-`vanilla-agents` offers a powerful and versatile framework for building conversational AI applications. Its lightweight design and customizable architecture empower you to create intelligent systems that meet your specific requirements. By understanding the core components and their interactions, you can effectively leverage this framework to develop innovative and effective AI solutions.

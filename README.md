@@ -35,7 +35,7 @@ Our first step is to set up our environment. This involves importing necessary l
 
 **The Memory: Conversation History Management**
 
-As our AI assistant interacts with users, it's crucial to remember past conversations. This memory allows the assistant to provide context-aware responses. We create a `ConversationHistory` class to manage this memory, storing it either in a local list or a MongoDB database for more persistent storage.
+As our AI assistant interacts with users, it's crucial to remember past conversations. We create a `ConversationHistory` class to manage this memory, storing it either in a local list or a MongoDB database for more persistent storage.
 
 **The Skills: Tools and Tasks**
 

@@ -10,6 +10,22 @@
 
 With just a few well-placed lines of code, you can take control and build a custom AI agent that bends to your will and can implement custom processes/workflows. 
 
+**The Demo**
+## Breaking Down the Tasks into a Custom Process
+
+* **Task 1: Search for YouTube Videos**
+  * This task involves identifying relevant YouTube videos based on a given query or topic.
+* **Task 2: Summarize the Content**
+  * This task requires extracting the key points and ideas from the videos found in Task 1.
+
+**Creating a Custom Process:**
+
+To combine these tasks into a cohesive workflow, we can define a `CustomProcess` that:
+
+1. **Retrieves Videos:** Uses a `YouTubeSearchTool` to search for videos based on a user-provided query.
+2. **Extracts Content:** Employs a `YouTubeTranscriptTool` to extract the transcripts of the retrieved videos.
+3. **Summarizes Content:** Utilizes a `TextSummarizationTool` to generate summaries from the extracted transcripts.
+
 **Key Components and How They Work:**
 
 1. **Tools:** These are the building blocks of your AI's functionality. Think of them as specialized skills. For instance, a `SearchTool` might leverage DuckDuckGo to retrieve information from the web.

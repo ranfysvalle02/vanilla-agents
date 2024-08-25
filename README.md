@@ -4,7 +4,7 @@
 
 **Introducing `vanilla-agents`**
 
-**User Input -> Start Process -> Task Execution -> Tool Selection -> Complete Process -> Response Generation**
+**User Input -> Start Process -> Task Execution -> Tool Selection -> Complete Process -> Response**
 
 `vanilla-agents` provides a lightweight and customizable implementation that empowers you to leverage the capabilities of your preferred LLM provider without the need for additional, often bloated libraries. 
 

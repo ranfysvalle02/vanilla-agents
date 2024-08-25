@@ -31,6 +31,7 @@ To combine these tasks into a cohesive workflow, we can define a `CustomProcess`
 2. **Tasks:** These are the specific actions your AI can perform. A task might involve using multiple tools in sequence. For example, a "Summarize" task could use a `SearchTool` to gather information and then employ a summarization technique.
 3. **AdvancedAgent:** This is the core component that orchestrates the tools and tasks. It's responsible for understanding user prompts, selecting appropriate tools, and managing the conversation history.
 4. **CustomProcess:** This allows you to chain tasks together, creating more complex workflows. For instance, you could define a process that first searches for information and then analyzes it using sentiment analysis.
+5. **Memory:** refers to the logging system we've implemented using MongoDB Atlas. This system records the agent's interactions, creating a valuable log that can be used for debugging, performance analysis, and future enhancements. While in this demo the memory doesn't directly influence the agent's responses using context augmentation for contextual awareness, it plays a crucial role in maintaining a record of the agent's activities.
 
 **The Benefits of a Lightweight Approach:**
 

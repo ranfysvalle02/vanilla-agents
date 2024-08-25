@@ -15,15 +15,15 @@ With just a few well-placed lines of code, you can take control and build a cust
 * **Task 1: Search for YouTube Videos**
   * This task involves identifying relevant YouTube videos based on a given query or topic.
 * **Task 2: Summarize the Content**
-  * This task requires extracting the key points and ideas from the videos found in Task 1.
+  * This task requires extracting the transcripts, key points and ideas from the videos found in Task 1.
 
 **Creating a Custom Process:**
 
 To combine these tasks into a cohesive workflow, we can define a `CustomProcess` that:
 
-1. **Retrieves Videos:** Uses a `YouTubeSearchTool` to search for videos based on a user-provided query.
-2. **Extracts Content:** Employs a `YouTubeTranscriptTool` to extract the transcripts of the retrieved videos.
-3. **Summarizes Content:** Utilizes a `TextSummarizationTool` to generate summaries from the extracted transcripts.
+1. **Retrieves Videos:** search for videos based on a user-provided query.
+2. **Extracts Content:** extract the transcripts of the retrieved videos.
+3. **Summarizes Content:** generate summaries from the extracted transcripts.
 
 **Key Components and How They Work:**
 

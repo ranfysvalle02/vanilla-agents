@@ -74,11 +74,6 @@ Sometimes, our AI assistant needs to perform a series of tasks in a specific ord
 
 With all the components in place, it's time to set our AI assistant in motion. We create tasks, chain them into a process, and set the process running. As the tasks are performed, our AI assistant interacts with the user, remembers the conversation, and uses its tools to generate responses.
 
-
-## **`response_format={"type": "json_object"}`**
-
-By structuring responses in JSON format, you're essentially providing a blueprint for how the AI's thoughts can be interpreted and processed. The use of `response_format={"type": "json_object"}` when interacting with the OpenAI API is crucial for providing clear instructions to the AI model and receiving structured responses. Let's delve deeper into its significance and benefits.
-
 ## Conclusion
 
 Now that you've seen the foundation for building your own AI agent, it's time to experiment! 

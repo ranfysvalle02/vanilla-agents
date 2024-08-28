@@ -3,8 +3,6 @@
 
 Contrary to popular belief, crafting a generative AI *agent* doesn't require a mountain of complex libraries. With just a few well-placed lines of code, you can take control and build a custom AI agent that bends to your will and can implement custom processes/workflows. Intrigued? This guide will equip you with the building blocks to forge your very own generative AI agent from scratch, giving you the freedom to experiment and innovate.
 
-Download the full source code [here.](https://github.com/ranfysvalle02/vanilla-agents)
-
 ## Breaking Down the Tasks into a Custom Process
 
 * **Task 1: Search for YouTube Videos**

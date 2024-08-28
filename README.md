@@ -160,6 +160,63 @@ class ConversationHistory:
             self.collection = self.db[COLLECTION_NAME]
 ```
 
+
+## How the Agent Uses the CustomProcess
+
+The agent uses the `CustomProcess` to execute a series of tasks in a specific order. Each task in the process is executed asynchronously, and the results of each task are stored and can be used as input for subsequent tasks. 
+
+The agent creates a `CustomProcess` that includes two tasks: `task1` and `task2`. When the agent calls `my_process.run()`, it executes `task1` and `task2` in sequence. The result of each task is stored in the `results` list, and the final result is printed out.
+
+## MongoDB as Data Platform
+
+The agent interacts with MongoDB through the `ConversationHistory` class. This class is used to manage the conversation history, either in memory or using MongoDB. If a MongoDB URI is provided, the class connects to MongoDB and uses it to persist the conversation history. 
+
+The agent talks to MongoDB every time it adds a new entry to the conversation history. This happens in the `add_to_history` method of the `ConversationHistory` class:
+
+```python
+def add_to_history(self, text, is_user=True):
+    """
+    Add a new entry to the conversation history.
+    """
+    timestamp = datetime.now().isoformat()
+    # If MongoDB client is available, insert the conversation into MongoDB
+    if self.client:
+        self.collection.insert_one({"text": text, "is_user": is_user, "timestamp": timestamp})
+    else:
+        self.history.append((text, is_user, timestamp))
+```
+
+## Creating Your Own Tool or Task
+
+Creating your own tool or task is straightforward. 
+
+To create a new tool, you need to define a new class that inherits from the `Tool` class and implement the `run` method. This method should encapsulate the specific functionality of your tool. Here's a template you can use:
+
+```python
+class MyTool(Tool):
+    """
+    My custom tool.
+    """
+    def run(self, input):
+        """
+        Implement the functionality of the tool here.
+        """
+        # Your code here
+        return result
+```
+
+To create a new task, you need to create an instance of the `Task` class and provide the necessary parameters. This includes a description of the task, the agent that will perform the task, any tools that the task should use, and any input that the task requires. Here's a template you can use:
+
+```python
+my_task = Task(
+    description="My task description",
+    agent=my_agent,
+    tools=[my_tool],
+    input=my_input,
+    name="my_task"
+)
+```
+
 ## The Benefits of a Lightweight Approach
 
 * **Flexibility:** You have full control over the components and their interactions. This allows you to tailor the agent to your specific needs.

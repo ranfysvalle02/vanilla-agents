@@ -1,6 +1,7 @@
 ## Building an Advanced AI Agent with OpenAI, MongoDB, and DuckDuckGo
 ![](https://upload.wikimedia.org/wikipedia/commons/a/aa/AI_Agent_Overview.png)
-Ditch the "bloated" libraries and unleash the raw power of Python! Contrary to popular belief, crafting a generative AI *agent* doesn't require a mountain of complex libraries. With just a few well-placed lines of code, you can take control and build a custom AI agent that bends to your will and can implement custom processes/workflows. Intrigued? This guide will equip you with the building blocks to forge your very own generative AI agent from scratch, giving you the freedom to experiment and innovate.
+
+Contrary to popular belief, crafting a generative AI *agent* doesn't require a mountain of complex libraries. With just a few well-placed lines of code, you can take control and build a custom AI agent that bends to your will and can implement custom processes/workflows. Intrigued? This guide will equip you with the building blocks to forge your very own generative AI agent from scratch, giving you the freedom to experiment and innovate.
 
 Download the full source code [here.](https://github.com/ranfysvalle02/vanilla-agents)
 

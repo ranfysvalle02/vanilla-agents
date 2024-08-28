@@ -33,47 +33,104 @@ To combine these tasks into a cohesive workflow, we can define a `CustomProcess`
 4. **CustomProcess:** This allows you to chain tasks together, creating more complex workflows. For instance, you could define a process that first searches for information and then analyzes it using sentiment analysis.
 5. **Memory:** refers to the logging system we've implemented using MongoDB Atlas. This system records the agent's interactions, creating a valuable log that can be used for debugging, performance analysis, and future enhancements. While in this demo the memory doesn't directly influence the agent's responses using context augmentation for contextual awareness, it plays a crucial role in maintaining a record of the agent's activities.
 
+**Key Components Explained**
+
+This section provides an in-depth look at the key components of our agentic abstraction built on top of large language models. 
+
+The system is designed to perform complex tasks and maintain a record of its interactions, leveraging a combination of tools, tasks, and an advanced agent to orchestrate the process.
+
+**Tools: Specialized Capabilities**
+
+In the system, `Tools` are the fundamental units of functionality. They are akin to specialized capabilities that the agent can utilize. For instance, the `SearchTool` in our code leverages DuckDuckGo to retrieve information from the web. 
+
+Each tool is a class that inherits from the base `Tool` class and implements a `run` method. This method encapsulates the specific functionality of the tool. Here's how the `SearchTool` is defined:
+
+```python
+class SearchTool(Tool):
+    """
+    Tool to search the web using DuckDuckGo.
+    """
+    def run(self, input):
+        """
+        Runs a DuckDuckGo search and returns the results.
+        """
+        results = DDGS().text(str(input+" site:youtube.com video"), region="us-en", max_results=5)
+        return {"web_search_results": results, "input": input, "tool_id": "<" + self.name + ">"}
+```
+
+**Tasks: Defined Actions**
+
+`Tasks` are the specific actions that the agent can perform. They are defined as instances of the `Task` class, which includes a `run` method that defines how the task is performed. Each task is designed to use one or more tools to accomplish a specific goal. 
+
+For instance, the following `Task` uses the `SearchTool` to perform a web search based on user input:
+
+```python
+task1 = Task(
+    description=str("Perform a search for: `"+user_input+"`"),
+    agent=AdvancedAgent(
+        tools=[SearchTool("search", "Search the web.")],
+        history=ConversationHistory(MDB_URI)
+    ),
+    name="step_1",
+    tool_use_required=True
+)
+```
+
+**AdvancedAgent: The Orchestrator**
+
+The `AdvancedAgent` is the core component that orchestrates the tools and tasks. It's responsible for understanding user prompts, selecting appropriate tools, and managing the conversation history. The agent uses the OpenAI API to generate text based on a given prompt and can use tools to assist in generating responses.
+
+```python
+class AdvancedAgent:
+    """
+    Advanced agent that can use tools and maintain conversation history.
+    """
+    def __init__(self, model="gpt-4o", history=None, tools=[]):
+        self.openai = az_client
+        self.model = model
+        self.history = history or ConversationHistory()  # Use provided history or create new one
+        self.tools = tools
+        self.tool_info = {tool.name: tool.description for tool in tools}  # Generate dictionary of tool names and descriptions
+```
+
+**CustomProcess: Chaining Tasks**
+
+The `CustomProcess` class allows you to chain tasks together, creating more complex workflows. For instance, you could define a process that first searches for information and then writes a report based on the search results. The `run` method of the `CustomProcess` class executes all tasks in the process asynchronously.
+
+```python
+class CustomProcess:
+    """
+    Class representing a process that consists of multiple tasks.
+    """
+    def __init__(self, tasks):
+        self.tasks = tasks
+```
+
+**Memory: Conversation History**
+
+Memory in this context refers to the conversation history managed by the `ConversationHistory` class. This class can either store the history in memory or use MongoDB to persist the history. While the memory doesn't directly influence the agent's responses in this implementation, it plays a crucial role in maintaining a record of the agent's activities.
+
+```python
+class ConversationHistory:
+    """
+    Class to manage conversation history, either in memory or using MongoDB.
+    """
+    def __init__(self, mongo_uri=None):
+        self.history = []  # Default to in-memory list if no Mongo connection
+
+        # If MongoDB URI is provided, connect to MongoDB
+        if mongo_uri:
+            self.client = pymongo.MongoClient(mongo_uri)
+            self.db = self.client[DB_NAME]
+            self.collection = self.db[COLLECTION_NAME]
+```
+
 **The Benefits of a Lightweight Approach:**
 
-* **Flexibility:** You have full control over the components and their interactions. This allows you to tailor the AI to your specific needs.
+* **Flexibility:** You have full control over the components and their interactions. This allows you to tailor the agent to your specific needs.
 * **Efficiency:** By avoiding unnecessary dependencies, you can maintain a lean and efficient implementation.
 * **Customization:** You can easily add or remove tools and tasks as required, making the AI highly adaptable.
 * **Control:** You have direct access to the code, enabling you to fine-tune behavior and troubleshoot issues.
-
-**How It Works:**
-
-1. **User Input:** The user provides a prompt or question.
-2. **Tool Selection:** The `AdvancedAgent` analyzes the prompt and determines the most suitable tools to use.
-3. **Task Execution:** The selected tools are employed to carry out the necessary tasks.
-4. **Response Generation:** The `AdvancedAgent` combines the results from the tools and generates a response.
-
-**The Foundation: Setting Up the Environment**
-
-Our first step is to set up our environment. This involves importing necessary libraries and defining some constants. We're using libraries like `openai` for AI model interaction, `pymongo` for database management, `duckduckgo_search` for web search, and `youtube_transcript_api` for fetching YouTube video transcripts.
-
-**The Memory: Conversation History Management**
-
-As our AI assistant interacts with users, it's crucial to remember past conversations. We create a `ConversationHistory` class to manage this memory, storing it either in a local list or a MongoDB database for more persistent storage.
-
-**The Skills: Tools and Tasks**
-
-Our AI assistant needs skills to perform tasks. We represent these skills as `Tool` objects. For instance, we have a `SearchTool` that uses the DuckDuckGo search engine to retrieve information from the web. 
-
-**The Actions: Tasks**
-
-Tasks are the actions that our AI assistant can perform using its skills. For example, a task could be to search for information on a specific topic and summarize the findings. Each task is represented as an instance of the `Task` class, which includes a description of the task, the agent that will perform the task, the tools that the agent will use, and the input that the task will process.
-
-**The Brain: Advanced Agent and Custom Process**
-
-The `AdvancedAgent` is the brain of our AI assistant. It orchestrates the use of tools and tasks, generates responses to user prompts, and maintains the conversation history. 
-
-**The Workflow: Custom Process**
-
-Sometimes, our AI assistant needs to perform a series of tasks in a specific order. That's where the `CustomProcess` class comes in. It allows us to chain tasks together to create more complex workflows. For instance, we might have a process that involves searching for information, analyzing the results, and then summarizing the findings.
-
-**The Adventure: Running the AI Assistant**
-
-With all the components in place, it's time to set our AI assistant in motion. We create tasks, chain them into a process, and set the process running. As the tasks are performed, our AI assistant interacts with the user, remembers the conversation, and uses its tools to generate responses.
 
 ## Conclusion
 

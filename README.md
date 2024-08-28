@@ -163,7 +163,7 @@ class ConversationHistory:
 
 ## How the Agent Uses the CustomProcess
 
-The agent uses the `CustomProcess` to execute a series of tasks in a specific order. Each task in the process is executed asynchronously, and the results of each task are stored and can be used as input for subsequent tasks. 
+In this example, the agent uses the `CustomProcess` to execute a series of tasks in a specific order. Each task in the process is executed asynchronously, and the results of each task are stored and can be used as input for subsequent tasks. 
 
 The agent creates a `CustomProcess` that includes two tasks: `task1` and `task2`. When the agent calls `my_process.run()`, it executes `task1` and `task2` in sequence. The result of each task is stored in the `results` list, and the final result is printed out.
 

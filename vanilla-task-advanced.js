@@ -2,7 +2,7 @@ class Tool {
     constructor(name, operation) {
       this.name = name;
       this.operation = operation;
-      this.usageCount = 0; // Initialize usageCount
+      this.usageCount = 0;
     }
   
     run(input) {
@@ -16,7 +16,7 @@ class Tool {
       this.description = description;
       this.runFunction = runFunction;
       this.tools = tools;
-      this.toolLimits = {}; // Initialize toolLimits here
+      this.toolLimits = {};
     }
   
     useTool(toolName, input) {
@@ -24,19 +24,19 @@ class Tool {
       if (!tool) {
         throw new Error(`No tool found with name: ${toolName}`);
       }
-      tool.usageCount++; // Increment usageCount before checking limit
+      tool.usageCount++;
       if (this.toolLimits[toolName] && this.toolLimits[toolName] < tool.usageCount) {
         throw new Error(`Usage limit exceeded for tool: ${tool.name} in task: ${this.description}`);
       }
-      return tool.run(input); // Return the result of the tool's operation
+      return tool.run(input);
     }
   
     async execute() {
       let result = await this.runFunction();
       for (const tool of this.tools) {
-        result = this.useTool(tool.name, result); // Pass the result to the tool
+        result = this.useTool(tool.name, result);
       }
-      return result; // Return the final result
+      return result;
     }
   
     setToolLimit(toolName, limit) {
@@ -45,22 +45,33 @@ class Tool {
   }
   
   class CustomProcess {
-    constructor(tasks = []) {
+    constructor(tasks = [], parallel = false) {
       this.tasks = tasks;
+      this.parallel = parallel;
       this.executionHistory = [];
     }
   
     async run() {
+      const taskPromises = this.tasks.map((task) => this.executeTask(task));
+      const results = this.parallel ? await Promise.all(taskPromises) : await this.sequentialExecution(taskPromises);
+      return results;
+    }
+  
+    async executeTask(task) {
+      try {
+        const result = await task.execute();
+        this.executionHistory.push(`Task executed: ${task.description}`);
+        console.log(`Task executed: ${task.description}`);
+        return result;
+      } catch (error) {
+        console.error(`Error executing task: ${task.description}`, error);
+      }
+    }
+  
+    async sequentialExecution(taskPromises) {
       const results = [];
-      for (const task of this.tasks) {
-        try {
-          const result = await task.execute();
-          results.push(result);
-          this.executionHistory.push(`Task executed: ${task.description}`);
-          console.log(`Task executed: ${task.description}`);
-        } catch (error) {
-          console.error(`Error executing task: ${task.description}`, error);
-        }
+      for (const taskPromise of taskPromises) {
+        results.push(await taskPromise);
       }
       return results;
     }
@@ -77,7 +88,7 @@ class Tool {
     }
   
     getExecutionHistory() {
-      return this.executionHistory.slice(); // Return a copy of the array
+      return this.executionHistory.slice();
     }
   }
   
@@ -90,22 +101,19 @@ class Tool {
   }
   
   async function main() {
-    // Create a Tool instance
     const tool1 = new Tool("UPPER", (text) => text.toUpperCase());
   
-    // Create a Task instance with a taskId, a function for run, and a set of tools
     const task1 = new Task("id_1", "hello", () => "hello (sync)", [tool1]);
-    task1.setToolLimit(tool1.name, 3); // Set limit for tool1 in task1
+    task1.setToolLimit(tool1.name, 3);
   
     const task2 = new Task("id_2", "world", async () => {
-      // Simulate an async operation
       const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       await delay(1000);
       return "world (async)";
     }, []);
   
-    const myProcess = new CustomProcess();
-    myProcess.add_task(task1,4);
+    const myProcess = new CustomProcess([], true);
+    myProcess.add_task(task1, 4);
     myProcess.add_task(task2);
   
     const agent = new Agent();

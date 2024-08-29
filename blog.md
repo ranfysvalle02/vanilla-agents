@@ -1,593 +1,181 @@
-## Building an Advanced AI Agent with OpenAI, MongoDB, and DuckDuckGo
-![](https://upload.wikimedia.org/wikipedia/commons/a/aa/AI_Agent_Overview.png)
+## Building an Advanced AI Agent with MongoDB as Memory
 
-Contrary to popular belief, crafting a generative AI *agent* doesn't require a mountain of complex libraries. With just a few well-placed lines of code, you can take control and build a custom AI agent that bends to your will and can implement custom processes/workflows. Intrigued? This guide will equip you with the building blocks to forge your very own generative AI agent from scratch, giving you the freedom to experiment and innovate.
+![AI Agent Overview](https://upload.wikimedia.org/wikipedia/commons/a/aa/AI_Agent_Overview.png)
 
-## Breaking Down the Tasks into a Custom Process
+Crafting a generative AI *agent* doesn't require a mountain of complex libraries. With just a few well-placed lines of code, you can build a custom AI agent that can implement custom processes/workflows. This guide will equip you with the building blocks to forge your very own generative AI agent from scratch, giving you the freedom to experiment and innovate.
 
-* **Task 1: Search for YouTube Videos**
-  * This task involves identifying relevant YouTube videos based on a given query or topic.
-* **Task 2: Summarize the Content**
-  * This task requires extracting the transcripts, key points and ideas from the videos found in Task 1.
+## Understanding Agent Abstraction
 
-**Creating a Custom Process:**
+Agent Abstraction is a design pattern that allows us to automate complex workflows. It involves the creation of an 'Agent' that can execute a 'Process'. A Process is a series of 'Tasks', and each Task can utilize a set of 'Tools'. 
 
-To combine these tasks into a cohesive workflow, we can define a `CustomProcess` that:
+### Breaking Down the Process: Tasks and Tools
 
-1. **Retrieves Videos:** search for videos based on a user-provided query.
-2. **Extracts Content:** extract the transcripts of the retrieved videos.
-3. **Summarizes Content:** generate summaries from the extracted transcripts.
+A process is essentially a recipe for automation. It's a series of steps, each focusing on a specific action. These steps are called tasks. 
 
-**Key Components and How They Work:**
+Let's take a real-world example. Imagine a process for automatically generating social media posts from blog articles. One task could be summarizing the article, another converting the summary to an engaging format, and a final one might be posting it to your social media channels.
 
-1. **Tools:** These are the building blocks of your AI's functionality. Think of them as specialized skills. For instance, a `SearchTool` might leverage DuckDuckGo to retrieve information from the web.
-2. **Tasks:** These are the specific actions your AI can perform. A task might involve using multiple tools in sequence. For example, a "Summarize" task could use a `SearchTool` to gather information and then employ a summarization technique.
-3. **AdvancedAgent:** This is the core component that orchestrates the tools and tasks. It's responsible for understanding user prompts, selecting appropriate tools, and managing the conversation history.
-4. **CustomProcess:** This allows you to chain tasks together, creating more complex workflows. For instance, you could define a process that first searches for information and then analyzes it using sentiment analysis.
-5. **Memory:** refers to the logging system we've implemented using MongoDB Atlas. This system records the agent's interactions, creating a valuable log that can be used for debugging, performance analysis, and future enhancements. While in this demo the memory doesn't directly influence the agent's responses using context augmentation for contextual awareness, it plays a crucial role in maintaining a record of the agent's activities.
+Each task can leverage a set of tools to complete its job.  In our social media example, tools might include a summarization engine, a text formatting script, and a social media posting API.
 
-**The Benefits of a Lightweight Approach:**
+### Sequential vs. Parallel Execution: A Closer Look
 
-* **Flexibility:** You have full control over the components and their interactions. This allows you to tailor the AI to your specific needs.
-* **Efficiency:** By avoiding unnecessary dependencies, you can maintain a lean and efficient implementation.
-* **Customization:** You can easily add or remove tools and tasks as required, making the AI highly adaptable.
-* **Control:** You have direct access to the code, enabling you to fine-tune behavior and troubleshoot issues.
+The execution strategy of tasks is a crucial aspect of workflow automation. 
 
-**How It Works:**
+The agent can execute tasks in two primary ways: Sequentially and in Parallel. 
 
-1. **User Input:** The user provides a prompt or question.
-2. **Tool Selection:** The `AdvancedAgent` analyzes the prompt and determines the most suitable tools to use.
-3. **Task Execution:** The selected tools are employed to carry out the necessary tasks.
-4. **Response Generation:** The `AdvancedAgent` combines the results from the tools and generates a response.
+* **Sequential Execution:** This approach is akin to following a recipe. Each step (or task) must be completed in a specific order before proceeding to the next. For instance, in a content creation workflow, the agent might first summarize an article, then format the summary into a social media-friendly text, and finally, post it on the designated platform. Each task relies on the output of the previous one, creating a chain of dependencies. 
 
-**The Foundation: Setting Up the Environment**
+* **Parallel Execution:** This strategy is comparable to prepping ingredients for a meal. Several steps can occur simultaneously, enhancing efficiency. The agent can employ parallel execution for tasks that are independent, i.e., their outputs don't influence each other. For example, the agent could summarize an article while concurrently sending a text notification about the start of the process. Both tasks are independent, allowing them to run side-by-side without waiting for the other to complete.
 
-Our first step is to set up our environment. This involves importing necessary libraries and defining some constants. We're using libraries like `openai` for AI model interaction, `pymongo` for database management, `duckduckgo_search` for web search, and `youtube_transcript_api` for fetching YouTube video transcripts.
+Choosing between sequential and parallel execution depends on the nature of the tasks and their interdependencies. While parallel execution can speed up the process, it requires careful management to ensure that all tasks are completed correctly. Conversely, sequential execution might be slower but offers a straightforward, step-by-step progression that's easier to manage and debug.
 
-```python
-import json
-from openai import AzureOpenAI
-import pymongo
-from duckduckgo_search import DDGS
-import asyncio
-from datetime import datetime
-import re
-from youtube_transcript_api import YouTubeTranscriptApi
-...
-```
+**Caveats to Consider:**
 
-**The Memory: Conversation History Management**
+* **Critical Tasks:** Some tasks might be essential for the entire workflow to function properly. The agent can be programmed to handle these critical tasks with priority and halt the process if they fail.
+* **Tool Usage Limits:**  Sometimes, using a tool too frequently might have limitations (e.g., exceeding API quotas). The agent can be configured to set usage limits on specific tools within a process.
 
-As our AI assistant interacts with users, it's crucial to remember past conversations. We create a `ConversationHistory` class to manage this memory, storing it either in a local list or a MongoDB database for more persistent storage.
+### Benefits of Agent Abstraction
+
+* **Reduced Manual Work:**  Agents automate repetitive tasks, freeing up your time for more strategic activities.
+* **Improved Efficiency:**  Automation optimizes workflows, leading to faster completion times.
+* **Increased Accuracy:**  Agents can minimize human error by consistently following defined processes.
+* **Intelligent Decision-Making:** LLMs enable agents to choose the best tool for each task, further enhancing automation effectiveness.
+
+### Agent
+
+An Agent is the primary executor. It is responsible for running the entire process and managing the results. In our Python example, the Agent class has a memory attribute that stores the history of executed processes. This memory is implemented using MongoDB, a popular NoSQL database, which allows the agent to remember past conversations and learn from them.
 
 ```python
-class ConversationHistory:
-	"""
-	Class to manage conversation history, either in memory or using MongoDB.
-	"""
-	def __init__(self, mongo_uri=None):
-    	self.history = []  # Default to in-memory list if no Mongo connection
+class Agent:
+    def __init__(self):
+        self.memory = ConversationHistory(mongo_uri=MDB_URI)
 
-    	# If MongoDB URI is provided, connect to MongoDB
-    	if mongo_uri:
-        	self.client = pymongo.MongoClient(mongo_uri)
-        	self.db = self.client[DB_NAME]
-        	self.collection = self.db[COLLECTION_NAME]
-
-	def add_to_history(self, text, is_user=True):
-    	"""
-    	Add a new entry to the conversation history.
-    	"""
-    	timestamp = datetime.now().isoformat()
-    	# If MongoDB client is available, insert the conversation into MongoDB
-    	if self.client:
-        	self.collection.insert_one({"text": text, "is_user": is_user, "timestamp": timestamp})
-    	else:
-        	self.history.append((text, is_user, timestamp))
-
-	def get_history(self):
-    	"""
-    	Get the conversation history as a formatted string.
-    	"""
-    	if self.client:
-        	history = self.collection.find({}, sort=[("timestamp", pymongo.DESCENDING)]).limit(2)
-        	return "\n".join([f"{item['timestamp']} - {'User' if item.get('is_user', False) else 'Assistant'}: {item['text']}" for item in history])
-    	else:
-        	return "\n".join([f"{timestamp} - {'User' if is_user else 'Assistant'}: {text}" for text, is_user, timestamp in self.history])
+    async def execute_process(self, process):
+        results = await process.run()
+        self.memory.add_to_history(process.process_to_json())
+        return results
 ```
 
-**The Skills: Tools and Tasks**
+### Process
 
-Our AI assistant needs skills to perform tasks. We represent these skills as `Tool` objects. For instance, we have a `SearchTool` that uses the DuckDuckGo search engine to retrieve information from the web.
-
-```python
-class Tool:
-	"""
-	Base class for tools that the agent can use.
-	"""
-	def __init__(self, name, description):
-    	self.name = name
-    	self.description = description
-    	self.openai = az_client
-    	self.model = "gpt-4o"
-
-	def run(self, input):
-    	"""
-    	This method needs to be implemented by specific tool classes.
-    	"""
-    	raise NotImplementedError("Tool must implement a run method")
-
-class SearchTool(Tool):
-	"""
-	Tool to search the web using DuckDuckGo.
-	"""
-	def run(self, input):
-    	"""
-    	Runs a DuckDuckGo search and returns the results.
-    	"""
-    	results = DDGS().text(str(input+" site:youtube.com video"), region="us-en", max_results=5)
-    	return {"web_search_results": results, "input": input, "tool_id": "<" + self.name + ">"}
-
-```
-**The Actions: Tasks**
-
-```python
-class Task:
-	"""
-	Class representing a task for the agent to complete.
-	"""
-	def __init__(self, description, agent, tools=[], input=None, name="", tool_use_required=False):
-    	self.description = description
-    	self.agent = agent
-    	self.tools = tools
-    	self.output = None
-    	self.input = input
-    	self.name = name
-    	self.tool_use_required = tool_use_required
-
-	async def run(self):
-    	"""
-    	Runs the task using the agent and tools, optionally adding additional context.
-    	"""
-    	# Use the agent and tools to perform the task
-    	if self.input:
-        	self.description += "\nUse this task_context to complete the task:\n[task_context]\n" + str(self.input.output) + "\n[end task_context]\n"
-    	result = await self.agent.generate_text(self.description)
-    	self.output = result
-    	return result
-```
-
-Tasks are the actions that our AI assistant can perform using its skills. For example, a task could be to search for information on a specific topic and summarize the findings. Each task is represented as an instance of the `Task` class, which includes a description of the task, the agent that will perform the task, the tools that the agent will use, and the input that the task will process.
-
-**The Brain: Advanced Agent and Custom Process**
-
-The `AdvancedAgent` is the brain of our AI assistant. It orchestrates the use of tools and tasks, generates responses to user prompts, and maintains the conversation history.
-
-```python
-class AdvancedAgent:
-	"""
-	Advanced agent that can use tools and maintain conversation history.
-	"""
-	def __init__(self, model="gpt-4o", history=None, tools=[]):
-    	self.openai = az_client
-    	self.model = model
-    	self.history = history or ConversationHistory()  # Use provided history or create new one
-    	self.tools = tools
-    	self.tool_info = {tool.name: tool.description for tool in tools}  # Generate dictionary of tool names and descriptions
-
-	async def generate_text(self, prompt):
-    	"""
-    	Generates text using the provided prompt, considering conversation history and tool usage.
-    	"""
-    	response = self.openai.chat.completions.create(
-        	messages=[
-            	{"role": "user", "content": "Given this prompt:`" + prompt + "`"},
-            	{"role": "user", "content": """
-What tool would best help you to respond? If no best tool, just provide an answer to the best of your ability.
-Return an empty array if you don't want to use any tool for the `tools` key.
-
-AVAILABLE TOOLS: """ + ', '.join([f'"{name}": "{desc}"' for name, desc in self.tool_info.items()]) + """
-
-ALWAYS TRY TO USE YOUR TOOLS FIRST!
-
-[RESPONSE CRITERIA]:
-- JSON object
-- Format: {"tools": ["tool_name"], "prompt": "user input without the command", "answer": "answer goes here"}
-
-[EXAMPLE]:
-{"tools": ["search"], "prompt": "[user input without the command]", "answer": "<search>"}
-{"tools": [], "prompt": "[user input without the command]", "answer": "..."}
-"""}
-        	],
-        	model=self.model,
-        	response_format={"type": "json_object"}
-    	)
-    	# add question to history
-    	self.history.add_to_history(prompt, is_user=True)
-
-    	ai_response = json.loads(response.choices[0].message.content.strip())
-    	if not ai_response.get("tools", []):
-        	self.history.add_to_history(ai_response.get("answer", ""), is_user=False)
-        	return ai_response
-    	# Process the response (consider using tools here based on AI suggestion)
-    	tools_to_use = ai_response.get("tools", [])
-    	clean_prompt = ai_response.get("prompt", "")
-    	for tool_name in tools_to_use:
-        	tool = next((t for t in self.tools if t.name == tool_name), None)
-        	if tool:
-            	if tool_name == "search":
-                	ai_response = tool.run(clean_prompt)
-           	 
-
-    	self.history.add_to_history(ai_response, is_user=False)
-    	return ai_response
-
-```
-
-## **Expanding on `response_format={"type": "json_object"}`**
-
-By structuring responses in JSON format, you're essentially providing a blueprint for how the AI's thoughts can be interpreted and processed. The use of `response_format={"type": "json_object"}` when interacting with the OpenAI API is crucial for providing clear instructions to the AI model and receiving structured responses. Let's delve deeper into its significance and benefits.
-
-### **Why JSON Objects?**
-
-* **Clarity and Structure:** JSON objects offer a human-readable and machine-processable format for organizing data. This makes it easier to parse and interpret the model's responses.
-* **Flexibility:** JSON can represent a wide range of data types, including strings, numbers, arrays, and objects. This flexibility allows for complex responses and customization.
-* **Consistent Format:** By specifying the `json_object` response format, you ensure that the model's output adheres to a predictable structure, simplifying subsequent processing.
-
-### **Key Components of the JSON Object**
-
-When using the `json_object` format, the AI model's response typically includes the following components:
-
-* **`tools`:** An array of tool names that the model suggests using to complete the task. Empty array if no tool.
-* **`prompt`:** The refined prompt that the model will use after considering the available tools. [no command]
-* **`answer`:** The generated response, which might be a direct answer or an instruction to use one of the suggested tools.
-
-### **Example Response**
-
-```json
-{
-  "tools": ["search"],
-  "prompt": "What is the capital of France?",
-  "answer": "<search>"
-}
-```
-
-**The Workflow: Custom Process**
-
-Sometimes, our AI assistant needs to perform a series of tasks in a specific order. That's where the `CustomProcess` class comes in. It allows us to chain tasks together to create more complex workflows. For instance, we might have a process that involves searching for information, analyzing the results, and then summarizing the findings.
+A Process is a collection of tasks that the agent executes. It can be run in parallel or sequentially, depending on the requirements. The Process class in our example has attributes like name, tasks, is_parallel, execution_history, and failures. It also includes methods for running the process, executing individual tasks, and managing the execution history and failures.
 
 ```python
 class CustomProcess:
-	"""
-	Class representing a process that consists of multiple tasks.
-	"""
-	def __init__(self, tasks):
-    	self.tasks = tasks
-
-	async def run(self):
-    	"""
-    	Runs all tasks in the process asynchronously.
-    	"""
-    	results = []
-    	for i, task in enumerate(self.tasks):
-        	if task.input and task.input.output:
-            	if task.name == "step_2":
-                	alltext = ""
-                	for yt_result in task.input.output["web_search_results"]:
-                    	video_id = extract_youtube_id_from_href(yt_result["href"])
-                    	if video_id:
-                        	try:
-                            	transcript = YouTubeTranscriptApi.get_transcript(video_id)
-                            	if transcript:
-                                	alltext = (' '.join(item['text'] for item in transcript))
-                                	task.description += f"""\nYoutube Transcript for {video_id}:\n""" + alltext
-                                	print(f"Added transcript for {video_id}")
-                        	except Exception as e:
-                            	print(f"Error fetching transcript for {video_id}")
-        	result = await task.run()  # Pass the result of the previous task to the next task
-        	results.append(result)
-    	print("Process complete.")
-    	return results
+    def __init__(self, name, tasks=None, is_parallel=False):
+        self.name = name
+        self.tasks = tasks if tasks else []
+        self.is_parallel = is_parallel
+        self.execution_history = []
+        self.failures = []
 ```
 
-**The Adventure: Running the AI Assistant**
+### Task
 
-With all the components in place, it's time to set our AI assistant in motion. We create tasks, chain them into a process, and set the process running. As the tasks are performed, our AI assistant interacts with the user, remembers the conversation, and uses its tools to generate responses.
+A Task is a single unit of work in a process. Each task can use one or more tools to accomplish its goal. In our example, we have a class called LLMTask (Language Learning Model Task) that represents a task. This class includes methods for using a tool and executing the task. It also includes a method for setting a usage limit for a tool.
 
 ```python
-async def main():
-	# Use a MongoDB connection string for persistent history (optional)
-	# Create tasks
-	user_input = input("Enter any topic: ")
-	task1 = Task(
-    	description=str("Perform a search for: `"+user_input+"`"),
-    	agent=AdvancedAgent(
-        	tools=[SearchTool("search", "Search the web.")],
-        	history=ConversationHistory(MDB_URI)
-    	),
-    	name="step_1",
-    	tool_use_required=True
-	)
-	task2 = Task(
-    	description=f"""
-Write a concise bullet point report on `{user_input}` using the provided [task_context].
-IMPORTANT! Use the [task_context]
-
-[Response Criteria]:
-- Bullet point summary
-- Minimum of 100 characters
-- Use the provided [task_context]
-
-""",
-    	agent=AdvancedAgent(
-        	history=ConversationHistory(MDB_URI),
-        	tools=[]
-    	),
-    	input=task1,
-    	name="step_2"
-	)
-
-	# Create process
-	my_process = CustomProcess([task1, task2])
-
-	# Run process and print the result
-	result = await my_process.run()
-	print(result[-1].get("answer", ""))
-
-if __name__ == "__main__":
-	asyncio.run(main())
+class LLMTask(Task):
+    def __init__(self, task_id, description, run_function, tools=None, critical=False, llm=None, llm_model=None):
+        self.task_id = task_id
+        self.description = description
+        self.run_function = run_function
+        self.tools = tools if tools else []
+        self.tool_limits = {}
+        self.tool_info = {tool.name: tool.description for tool in tools}  # Generate dictionary of tool names and descriptions
+        self.critical = critical
+        self.llm = llm
+        self.llm_model = llm_model
 ```
 
-## FULL CODE
+### Tools
+
+Tools are the resources or operations that a task can use to achieve its goal. In our example, we have a Tool class with attributes like name, description, operation, and usage_count. The operation attribute is a function that defines what the tool does.
 
 ```python
-import json
-from openai import AzureOpenAI
-import pymongo
-from duckduckgo_search import DDGS
-import asyncio
-from datetime import datetime
-import re
-from youtube_transcript_api import YouTubeTranscriptApi
-
-# Define constants
-AZURE_OPENAI_ENDPOINT = "https://.openai.azure.com"
-AZURE_OPENAI_API_KEY = ""
-az_client = AzureOpenAI(azure_endpoint=AZURE_OPENAI_ENDPOINT,api_version="2023-07-01-preview",api_key=AZURE_OPENAI_API_KEY)
-MDB_URI = ""
-DB_NAME = ""
-COLLECTION_NAME = "agent_history"
-
-class ConversationHistory:
-	"""
-	Class to manage conversation history, either in memory or using MongoDB.
-	"""
-	def __init__(self, mongo_uri=None):
-    	self.history = []  # Default to in-memory list if no Mongo connection
-
-    	# If MongoDB URI is provided, connect to MongoDB
-    	if mongo_uri:
-        	self.client = pymongo.MongoClient(mongo_uri)
-        	self.db = self.client[DB_NAME]
-        	self.collection = self.db[COLLECTION_NAME]
-
-	def add_to_history(self, text, is_user=True):
-    	"""
-    	Add a new entry to the conversation history.
-    	"""
-    	timestamp = datetime.now().isoformat()
-    	# If MongoDB client is available, insert the conversation into MongoDB
-    	if self.client:
-        	self.collection.insert_one({"text": text, "is_user": is_user, "timestamp": timestamp})
-    	else:
-        	self.history.append((text, is_user, timestamp))
-
-	def get_history(self):
-    	"""
-    	Get the conversation history as a formatted string.
-    	"""
-    	if self.client:
-        	history = self.collection.find({}, sort=[("timestamp", pymongo.DESCENDING)]).limit(2)
-        	return "\n".join([f"{item['timestamp']} - {'User' if item.get('is_user', False) else 'Assistant'}: {item['text']}" for item in history])
-    	else:
-        	return "\n".join([f"{timestamp} - {'User' if is_user else 'Assistant'}: {text}" for text, is_user, timestamp in self.history])
-
 class Tool:
-	"""
-	Base class for tools that the agent can use.
-	"""
-	def __init__(self, name, description):
-    	self.name = name
-    	self.description = description
-    	self.openai = az_client
-    	self.model = "gpt-4o"
-
-	def run(self, input):
-    	"""
-    	This method needs to be implemented by specific tool classes.
-    	"""
-    	raise NotImplementedError("Tool must implement a run method")
-
-class SearchTool(Tool):
-	"""
-	Tool to search the web using DuckDuckGo.
-	"""
-	def run(self, input):
-    	"""
-    	Runs a DuckDuckGo search and returns the results.
-    	"""
-    	results = DDGS().text(str(input+" site:youtube.com video"), region="us-en", max_results=5)
-    	return {"web_search_results": results, "input": input, "tool_id": "<" + self.name + ">"}
-
-class Task:
-	"""
-	Class representing a task for the agent to complete.
-	"""
-	def __init__(self, description, agent, tools=[], input=None, name="", tool_use_required=False):
-    	self.description = description
-    	self.agent = agent
-    	self.tools = tools
-    	self.output = None
-    	self.input = input
-    	self.name = name
-    	self.tool_use_required = tool_use_required
-
-	async def run(self):
-    	"""
-    	Runs the task using the agent and tools, optionally adding additional context.
-    	"""
-    	# Use the agent and tools to perform the task
-    	if self.input:
-        	self.description += "\nUse this task_context to complete the task:\n[task_context]\n" + str(self.input.output) + "\n[end task_context]\n"
-    	result = await self.agent.generate_text(self.description)
-    	self.output = result
-    	return result
-
-class CustomProcess:
-	"""
-	Class representing a process that consists of multiple tasks.
-	"""
-	def __init__(self, tasks):
-    	self.tasks = tasks
-
-	async def run(self):
-    	"""
-    	Runs all tasks in the process asynchronously.
-    	"""
-    	results = []
-    	for i, task in enumerate(self.tasks):
-        	if task.input and task.input.output:
-            	if task.name == "step_2":
-                	alltext = ""
-                	for yt_result in task.input.output["web_search_results"]:
-                    	video_id = extract_youtube_id_from_href(yt_result["href"])
-                    	if video_id:
-                        	try:
-                            	transcript = YouTubeTranscriptApi.get_transcript(video_id)
-                            	if transcript:
-                                	alltext = (' '.join(item['text'] for item in transcript))
-                                	task.description += f"""\nYoutube Transcript for {video_id}:\n""" + alltext
-                                	print(f"Added transcript for {video_id}")
-                        	except Exception as e:
-                            	print(f"Error fetching transcript for {video_id}")
-        	result = await task.run()  # Pass the result of the previous task to the next task
-        	results.append(result)
-    	print("Process complete.")
-    	return results
-
-class AdvancedAgent:
-	"""
-	Advanced agent that can use tools and maintain conversation history.
-	"""
-	def __init__(self, model="gpt-4o", history=None, tools=[]):
-    	self.openai = az_client
-    	self.model = model
-    	self.history = history or ConversationHistory()  # Use provided history or create new one
-    	self.tools = tools
-    	self.tool_info = {tool.name: tool.description for tool in tools}  # Generate dictionary of tool names and descriptions
-
-	async def generate_text(self, prompt):
-    	"""
-    	Generates text using the provided prompt, considering conversation history and tool usage.
-    	"""
-    	response = self.openai.chat.completions.create(
-        	messages=[
-            	{"role": "user", "content": "Given this prompt:`" + prompt + "`"},
-            	{"role": "user", "content": """
-What tool would best help you to respond? If no best tool, just provide an answer to the best of your ability.
-Return an empty array if you don't want to use any tool for the `tools` key.
-
-AVAILABLE TOOLS: """ + ', '.join([f'"{name}": "{desc}"' for name, desc in self.tool_info.items()]) + """
-
-ALWAYS TRY TO USE YOUR TOOLS FIRST!
-
-[RESPONSE CRITERIA]:
-- JSON object
-- Format: {"tools": ["tool_name"], "prompt": "user input without the command", "answer": "answer goes here"}
-
-[EXAMPLE]:
-{"tools": ["search"], "prompt": "[user input without the command]", "answer": "<search>"}
-{"tools": [], "prompt": "[user input without the command]", "answer": "..."}
-"""}
-        	],
-        	model=self.model,
-        	response_format={"type": "json_object"}
-    	)
-    	# add question to history
-    	self.history.add_to_history(prompt, is_user=True)
-
-    	ai_response = json.loads(response.choices[0].message.content.strip())
-    	if not ai_response.get("tools", []):
-        	self.history.add_to_history(ai_response.get("answer", ""), is_user=False)
-        	return ai_response
-    	# Process the response (consider using tools here based on AI suggestion)
-    	tools_to_use = ai_response.get("tools", [])
-    	clean_prompt = ai_response.get("prompt", "")
-    	for tool_name in tools_to_use:
-        	tool = next((t for t in self.tools if t.name == tool_name), None)
-        	if tool:
-            	if tool_name == "search":
-                	ai_response = tool.run(clean_prompt)
-           	 
-
-    	self.history.add_to_history(ai_response, is_user=False)
-    	return ai_response
-
-
-def extract_youtube_id_from_href(href_url):
-	# Split the URL on the '=' character
-	url_parts = href_url.split('=')
-	# The video ID is the part after 'v', which is the last part of the URL
-	video_id = url_parts[-1]
-	return video_id
-
-
-
-async def main():
-	# Use a MongoDB connection string for persistent history (optional)
-	# Create tasks
-	user_input = input("Enter any topic: ")
-	task1 = Task(
-    	description=str("Perform a search for: `"+user_input+"`"),
-    	agent=AdvancedAgent(
-        	tools=[SearchTool("search", "Search the web.")],
-        	history=ConversationHistory(MDB_URI)
-    	),
-    	name="step_1",
-    	tool_use_required=True
-	)
-	task2 = Task(
-    	description=f"""
-Write a concise bullet point report on `{user_input}` using the provided [task_context].
-IMPORTANT! Use the [task_context]
-
-[Response Criteria]:
-- Bullet point summary
-- Minimum of 100 characters
-- Use the provided [task_context]
-
-""",
-    	agent=AdvancedAgent(
-        	history=ConversationHistory(MDB_URI),
-        	tools=[]
-    	),
-    	input=task1,
-    	name="step_2"
-	)
-
-	# Create process
-	my_process = CustomProcess([task1, task2])
-
-	# Run process and print the result
-	result = await my_process.run()
-	print(result[-1].get("answer", ""))
-
-if __name__ == "__main__":
-	asyncio.run(main())
+    def __init__(self, name, description, operation):
+        self.name = name
+        self.description = description
+        self.operation = operation
+        self.usage_count = 0
 ```
+
+## Sequential vs Parallel Execution
+
+One of the key aspects to consider when designing a process is whether the tasks should be executed sequentially or in parallel. 
+
+Sequential execution means that the tasks are executed one after the other. This is useful when the tasks are dependent on each other. For example, if Task B requires the output of Task A, they must be executed sequentially.
+
+Parallel execution, on the other hand, means that multiple tasks are executed at the same time. This is useful when the tasks are independent and can be run simultaneously to save time. However, it's important to handle exceptions properly to prevent one task's failure from affecting others.
+
+In our Python example, we have a CustomProcess class that can execute tasks either sequentially or in parallel, based on the is_parallel attribute.
+
+```python
+async def run(self):
+    results = []
+    print(f"{datetime.now()} - Running tasks {'in parallel' if self.is_parallel else 'sequentially'} in process: {self.name}...")
+    if self.is_parallel:
+        tasks = [self.execute_task(task) for task in self.tasks]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+    else:
+        for task in self.tasks:
+            result = await self.execute_task(task, input="Execution history:"+" ".join(self.get_execution_history()))
+            if result is None and task.critical:
+                break
+            results.append(result)
+    return results
+```
+
+## A Complete Example
+
+Let's put all these concepts together in a complete example. We'll create an agent that can execute a process consisting of three tasks. Each task will use one or two tools, and the tasks will be executed both sequentially and in parallel.
+
+First, we'll define two tools: one that converts text to uppercase and another that doubles the string.
+
+```python
+tool1 = Tool("UPPER", "Converts text to uppercase", lambda text: text.upper())
+tool2 = Tool("DOUBLE", "Doubles the string", lambda text: text*2)
+```
+
+Next, we'll define three tasks. The first task will convert a string to uppercase, the second will double a string, and the third will combine the results of the first two tasks. Each task will use the LLM to determine the best tool to use.
+
+```python
+taskX = LLMTask("id_X", "convert `x` to uppercase", None, [tool1,tool2], critical=True, llm=az_client, llm_model='gpt-4o')
+taskY = LLMTask("id_Y", "double the string 'boom'", None, [tool1,tool2], critical=True, llm=az_client, llm_model='gpt-4o')
+taskZ = LLMTask("id_Z", "combine the last two results", None, [], critical=True, llm=az_client, llm_model='gpt-4o')
+```
+
+Then, we'll create two processes: one that executes the tasks in parallel and another that executes them sequentially.
+
+```python
+my_process1 = CustomProcess("Parallel Process", [taskX,taskY,taskZ], is_parallel=True)
+my_process2 = CustomProcess("Sequential Process", [taskX,taskY,taskZ], is_parallel=False)
+```
+
+Finally, we'll create an agent and have it execute both processes.
+
+```python
+agent1 = Agent()
+results = await agent1.execute_process(my_process1)
+print("Results:", [result for result in results if not isinstance(result, Exception)])
+print("Tool Usage:", tool1.name, tool1.usage_count, tool2.name, tool2.usage_count)
+
+tool1.usage_count = 0 #reset usage count
+tool2.usage_count = 0 #reset usage count
+
+results = await agent1.execute_process(my_process2)
+print("Results:", [result for result in results if not isinstance(result, Exception)])
+print("Tool Usage:", tool1.name, tool1.usage_count, tool2.name, tool2.usage_count)
+```
+
+## Conclusion
+
+In this guide, we've demonstrated how to construct an advanced AI agent using Python, OpenAI, MongoDB, and DuckDuckGo. By leveraging these technologies, we've created a flexible, efficient, and customizable AI agent capable of performing complex tasks and workflows. We've shown how to manage conversation history, implement various tools and tasks, and orchestrate these components using an advanced agent and custom processes.
+
+Agent Abstraction is a powerful concept that can greatly simplify workflow automation. By breaking down a process into manageable tasks and equipping them with the necessary tools, we can create a flexible and efficient system. Now that you've seen the foundation for building your own AI agent, it's time to experiment! Explore different tools, tasks, and workflows to tailor your agent to your specific needs. Remember, the possibilities are endless!
 
 **What will you build?**
 
 In this guide, we've demonstrated how to construct an advanced AI agent using Python, OpenAI, MongoDB, and DuckDuckGo. By leveraging these technologies, we've created a flexible, efficient, and customizable AI agent capable of performing complex tasks and workflows. We've shown how to manage conversation history, implement various tools and tasks, and orchestrate these components using an advanced agent and custom processes.
 
-Now that you've seen the foundation for building your own AI agent, it's time to experiment! Explore different tools, tasks, and workflows to tailor your agent to your specific needs. Remember, the possibilities are endless!
+Agent Abstraction is a powerful concept that can greatly simplify workflow automation. By breaking down a process into manageable tasks and equipping them with the necessary tools, we can create a flexible and efficient system. Now that you've seen the foundation for building your own AI agent, it's time to experiment! Explore different tools, tasks, and workflows to tailor your agent to your specific needs. Remember, the possibilities are endless!

@@ -52,8 +52,8 @@ class Tool {
     }
   
     async run() {
-      const taskPromises = this.tasks.map((task) => this.executeTask(task));
-      const results = this.parallel ? await Promise.all(taskPromises) : await this.sequentialExecution(taskPromises);
+      const taskFunctions = this.tasks.map((task) => () => this.executeTask(task));
+      const results = this.parallel ? await Promise.all(taskFunctions.map(fn => fn())) : await this.sequentialExecution(taskFunctions);
       return results;
     }
   
@@ -68,10 +68,10 @@ class Tool {
       }
     }
   
-    async sequentialExecution(taskPromises) {
+    async sequentialExecution(taskFunctions) {
       const results = [];
-      for (const taskPromise of taskPromises) {
-        results.push(await taskPromise);
+      for (const taskFunction of taskFunctions) {
+        results.push(await taskFunction());
       }
       return results;
     }
@@ -103,12 +103,15 @@ class Tool {
   async function main() {
     const tool1 = new Tool("UPPER", (text) => text.toUpperCase());
   
-    const task1 = new Task("id_1", "hello", () => "hello (sync)", [tool1]);
+    const task1 = new Task("id_1", "hello", async () => {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Add delay
+      return "hello (sync)";
+    }, [tool1]);
     task1.setToolLimit(tool1.name, 3);
   
     const task2 = new Task("id_2", "world", async () => {
       const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-      await delay(1000);
+      await delay(2000); // Add delay
       return "world (async)";
     }, []);
   
@@ -121,6 +124,16 @@ class Tool {
     console.log("Results:", results);
   
     console.log("Execution history:", myProcess.getExecutionHistory().join(" "));
+  
+    // Demonstrate sequential execution
+    const myProcess2 = new CustomProcess([], false);
+    myProcess2.add_task(task1, 2);
+    myProcess2.add_task(task2);
+  
+    const results2 = await agent.executeProcess(myProcess2);
+    console.log("Results (sequential):", results2);
+  
+    console.log("Execution history (sequential):", myProcess2.getExecutionHistory().join(" "));
   }
   
   main();

@@ -3,20 +3,21 @@ from datetime import datetime
 
 class Tool:
     def __init__(self, name, operation):
-        self.name = name;
-        self.operation = operation;
-        self.usage_count = 0;
+        self.name = name
+        self.operation = operation
+        self.usage_count = 0
 
     def run(self, input):
         return self.operation(input)
 
 class Task:
-    def __init__(self, task_id, description, run_function, tools=None):
+    def __init__(self, task_id, description, run_function, tools=None, critical=False):
         self.task_id = task_id
         self.description = description
         self.run_function = run_function
         self.tools = tools if tools else []
         self.tool_limits = {}
+        self.critical = critical
 
     async def use_tool(self, tool_name, input):
         tool = next((tool for tool in self.tools if tool.name == tool_name), None)
@@ -27,9 +28,9 @@ class Task:
         tool.usage_count += 1
         return tool.run(input)
 
-    async def execute(self):
+    async def execute(self, input=None):
         print(f"{datetime.now()} - Starting task: {self.description}")
-        result = await self.run_function()
+        result = await self.run_function(input)
         for tool in self.tools:
             result = await self.use_tool(tool.name, result)
         print(f"{datetime.now()} - Finished task: {self.description}")
@@ -53,19 +54,26 @@ class CustomProcess:
             tasks = [self.execute_task(task) for task in self.tasks]
             results = await asyncio.gather(*tasks, return_exceptions=True)
         else:
+            previous_result = None
             for task in self.tasks:
-                result = await self.execute_task(task)
+                result = await self.execute_task(task, previous_result)
+                if result is None and task.critical:
+                    break
                 results.append(result)
+                previous_result = result
         return results
 
-    async def execute_task(self, task):
+    async def execute_task(self, task, input=None):
         try:
-            result = await task.execute()
+            result = await task.execute(input)
             self.execution_history.append(f"Task executed: {task.description}")
             return result
         except Exception as error:
             print(f"{datetime.now()} - Error executing task: {task.description} in process: {self.name}", error)
             self.failures.append(f"Failure in process {self.name}: {str(error)}")
+            if task.critical:
+                print(f"{datetime.now()} - Critical task failed. Exiting process: {self.name}")
+                return None
             return error
 
     def add_task(self, task, repetitions=1):
@@ -92,10 +100,13 @@ class Agent:
 
 async def main():
     tool1 = Tool("UPPER", lambda text: text.upper())
-    task1 = Task("id_1", "hello", lambda: asyncio.sleep(2, "hello (async)"), [tool1])
-    task1.set_tool_limit(tool1.name, 3)
+    task1 = Task("id_1", "hello", lambda _: asyncio.sleep(2, "hello (async)"), [tool1], critical=True)
+    task1.set_tool_limit(tool1.name, 2)
 
-    task2 = Task("id_2", "world", lambda: asyncio.sleep(2, "world (async)"))
+    task2 = Task("id_2", "world", lambda _: asyncio.sleep(2, "world (async)"))
+
+    task3 = Task("id_3", "concatenate", lambda x: asyncio.sleep(2, x + " concatenated (async)"), [tool1])
+    task3.set_tool_limit(tool1.name, 1)
 
     print("Running tasks in parallel:")
     my_process = CustomProcess("Parallel Process", [task1, task2], True)
@@ -107,8 +118,9 @@ async def main():
 
     print("\nRunning tasks sequentially:")
     my_process = CustomProcess("Sequential Process")
-    my_process.add_task(task1, 3)
+    my_process.add_task(task1,3)
     my_process.add_task(task2)
+    my_process.add_task(task3)
     my_process.is_parallel = False
     results2 = await agent.execute_process(my_process)
     print("Results:", [result for result in results2 if not isinstance(result, Exception)])

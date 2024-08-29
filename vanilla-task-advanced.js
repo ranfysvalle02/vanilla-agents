@@ -55,84 +55,86 @@ class Tool {
   
     async run() {
       const results = [];
+      console.log(`Running tasks ${this.isParallel ? 'in parallel' : 'sequentially'}...`);
       if (this.isParallel) {
-        console.log("Running tasks in parallel...");
-        const promises = this.tasks.map(task => task.execute().then(result => {
-          this.executionHistory.push(`Task executed: ${task.description}`);
-          return result;
-        }).catch(error => {
-          console.error(`Error executing task: ${task.description}`, error);
-        }));
+        const promises = this.tasks.map(task => this.executeTask(task));
         results.push(...await Promise.all(promises));
       } else {
-        console.log("Running tasks sequentially...");
         for (const task of this.tasks) {
-          try {
-            const result = await task.execute();
-            results.push(result);
-            this.executionHistory.push(`Task executed: ${task.description}`);
-          } catch (error) {
-            console.error(`Error executing task: ${task.description}`, error);
-          }
+          const result = await this.executeTask(task);
+          results.push(result);
         }
       }
       return results;
     }
   
-    add_task(task, repetitions = 1) {
+    async executeTask(task) {
+      try {
+        const result = await task.execute();
+        this.executionHistory.push(`Task executed: ${task.description}`);
+        return result;
+      } catch (error) {
+        console.error(`Error executing task: ${task.description}`, error);
+        return error;
+      }
+    }
+  
+    addTask(task, repetitions = 1) {
       for (let i = 0; i < repetitions; i++) {
         this.tasks.push(task);
       }
     }
   
-    clear_tasks() {
+    clearTasks() {
       this.tasks = [];
       this.executionHistory = [];
     }
   
     getExecutionHistory() {
-      return this.executionHistory.slice();
+      return [...this.executionHistory];
     }
   }
   
   class Agent {
-    constructor() {}
+    constructor() {
+      this.failures = [];
+    }
   
     async executeProcess(process) {
-      return process.run();
+      const results = await process.run();
+      this.failures.push(...results.filter(result => result instanceof Error));
+      return results;
+    }
+  
+    getFailures() {
+      return [...this.failures];
     }
   }
   
   async function main() {
     const tool1 = new Tool("UPPER", (text) => text.toUpperCase());
-    const task1 = new Task("id_1", "hello", async () => {
-      const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-      await delay(2000);
-      return "hello (async)";
-    }, [tool1]);
+    const task1 = new Task("id_1", "hello", () => new Promise(resolve => setTimeout(() => resolve("hello (async)"), 2000)), [tool1]);
     task1.setToolLimit(tool1.name, 3);
   
-    const task2 = new Task("id_2", "world", async () => {
-      const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-      await delay(2000);
-      return "world (async)";
-    }, []);
+    const task2 = new Task("id_2", "world", () => new Promise(resolve => setTimeout(() => resolve("world (async)"), 2000)));
   
     console.log("Running tasks in parallel:");
     const myProcess = new CustomProcess([task1, task2], true);
     const agent = new Agent();
     const results = await agent.executeProcess(myProcess);
-    console.log("Results:", results);
+    console.log("Results:", results.filter(result => !(result instanceof Error)));
     console.log("Execution history:", myProcess.getExecutionHistory().join(" "));
+    console.log("Failures:", agent.getFailures().join("\n"));
   
     console.log("\nRunning tasks sequentially:");
-    myProcess.clear_tasks();
-    myProcess.add_task(task1, 3);
-    myProcess.add_task(task2);
+    myProcess.clearTasks();
+    myProcess.addTask(task1, 3);
+    myProcess.addTask(task2);
     myProcess.isParallel = false;
     const results2 = await agent.executeProcess(myProcess);
-    console.log("Results:", results2);
+    console.log("Results:", results2.filter(result => !(result instanceof Error)));
     console.log("Execution history:", myProcess.getExecutionHistory().join(" "));
+    console.log("Failures:", agent.getFailures().join("\n"));
   }
   
   main();

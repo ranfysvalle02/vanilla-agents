@@ -193,6 +193,4 @@ Agent Abstraction is a powerful concept that can greatly simplify workflow autom
 
 **What will you build?**
 
-In this guide, we've demonstrated how to construct an advanced AI agent using Python, OpenAI, MongoDB, and DuckDuckGo. By leveraging these technologies, we've created a flexible, efficient, and customizable AI agent capable of performing complex tasks and workflows. We've shown how to manage conversation history, implement various tools and tasks, and orchestrate these components using an advanced agent and custom processes.
-
 Agent Abstraction is a powerful concept that can greatly simplify workflow automation. By breaking down a process into manageable tasks and equipping them with the necessary tools, we can create a flexible and efficient system. Now that you've seen the foundation for building your own AI agent, it's time to experiment! Explore different tools, tasks, and workflows to tailor your agent to your specific needs. Remember, the possibilities are endless!

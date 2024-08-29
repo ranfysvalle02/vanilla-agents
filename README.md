@@ -4,6 +4,8 @@
 
 Crafting a generative AI *agent* doesn't require a mountain of complex libraries. With just a few well-placed lines of code, you can build a custom AI agent that can implement custom processes/workflows. This guide will equip you with the building blocks to forge your very own generative AI agent from scratch, giving you the freedom to experiment and innovate.
 
+The flow of operation is as follows: User Input -> Start Process -> Task Execution -> Tool Selection -> Complete Process -> Response. With just a few well-placed lines of code, you can take control and build a custom AI agent that bends to your will and can implement custom processes/workflows. 
+
 ## Understanding Agent Abstraction
 
 Agent Abstraction is a design pattern that allows us to automate complex workflows. It involves the creation of an 'Agent' that can execute a 'Process'. A Process is a series of 'Tasks', and each Task can utilize a set of 'Tools'. 

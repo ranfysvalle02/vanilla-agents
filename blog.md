@@ -168,6 +168,23 @@ print("Results:", [result for result in results if not isinstance(result, Except
 print("Tool Usage:", tool1.name, tool1.usage_count, tool2.name, tool2.usage_count)
 ```
 
+## Output
+
+```
+2024-08-29 16:58:54.419962 - Running tasks in parallel in process: Parallel Process...
+2024-08-29 16:58:54.420050 - Starting task: convert `x` to uppercase
+2024-08-29 16:58:55.848406 - Starting task: double the string 'boom'
+2024-08-29 16:58:56.458672 - Starting task: combine the last two results
+Results: ['X', 'boomboom', 'Since no specific results were provided in the task context, I can illustrate how to combine two results generally. For example:\n\nResult 1: "The company’s revenue increased by 10% in Q1."\nResult 2: "Customer satisfaction scores improved significantly during the same period."\n\nCombined result:\n"The company experienced a 10% increase in revenue during Q1, which was accompanied by a significant improvement in customer satisfaction scores."\n\nIf you provide the specific results you want to combine, I can create a more tailored response.']
+Tool Usage: UPPER 1 DOUBLE 1
+2024-08-29 16:58:59.366954 - Running tasks sequentially in process: Sequential Process...
+2024-08-29 16:58:59.367034 - Starting task: convert `x` to uppercase
+2024-08-29 16:59:40.097787 - Starting task: double the string 'boom'
+2024-08-29 16:59:41.213039 - Starting task: combine the last two results
+Results: ['X', 'boomboom', 'Xboomboom']
+Tool Usage: UPPER 1 DOUBLE 1
+```
+
 ## Conclusion
 
 In this guide, we've demonstrated how to construct an advanced AI agent using Python, OpenAI, MongoDB, and DuckDuckGo. By leveraging these technologies, we've created a flexible, efficient, and customizable AI agent capable of performing complex tasks and workflows. We've shown how to manage conversation history, implement various tools and tasks, and orchestrate these components using an advanced agent and custom processes.

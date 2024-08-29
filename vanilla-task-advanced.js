@@ -34,12 +34,12 @@ class Task {
   }
 
   async execute(input = null) {
-      console.log(`${new Date()} - Starting task: ${this.description}`);
+      console.log(`${new Date().toISOString()} - Starting task: ${this.description}`);
       let result = await this.runFunction(input);
       for (const tool of this.tools) {
           result = await this.useTool(tool.name, result);
       }
-      console.log(`${new Date()} - Finished task: ${this.description}`);
+      console.log(`${new Date().toISOString()} - Finished task: ${this.description}`);
       return result;
   }
 
@@ -59,18 +59,17 @@ class CustomProcess {
 
   async run() {
       const results = [];
-      console.log(`${new Date()} - Running tasks ${this.isParallel ? 'in parallel' : 'sequentially'} in process: ${this.name}...`);
+      console.log(`${new Date().toISOString()} - Running tasks ${this.isParallel ? 'in parallel' : 'sequentially'} in process: ${this.name}...`);
       if (this.isParallel) {
-          await Promise.all(this.tasks.map(task => this.executeTask(task))).then(res => results.push(...res));
+          const tasks = this.tasks.map(task => this.executeTask(task));
+          await Promise.all(tasks).then(res => results.push(...res));
       } else {
-          let previousResult = null;
           for (const task of this.tasks) {
-              const result = await this.executeTask(task, previousResult);
+              const result = await this.executeTask(task);
               if (result === null && task.critical) {
                   break;
               }
               results.push(result);
-              previousResult = result;
           }
       }
       return results;
@@ -82,10 +81,10 @@ class CustomProcess {
           this.executionHistory.push(`Task executed: ${task.description}`);
           return result;
       } catch (error) {
-          console.error(`${new Date()} - Error executing task: ${task.description} in process: ${this.name}`, error);
-          this.failures.push(`Failure in process ${this.name}: ${error}`);
+          console.error(`${new Date().toISOString()} - Error executing task: ${task.description} in process: ${this.name}`, error);
+          this.failures.push(`Failure in process ${this.name}: ${error.toString()}`);
           if (task.critical) {
-              console.error(`${new Date()} - Critical task failed. Exiting process: ${this.name}`);
+              console.error(`${new Date().toISOString()} - Critical task failed. Exiting process: ${this.name}`);
               return null;
           }
           return error;
@@ -120,41 +119,33 @@ class Agent {
   }
 }
 
-(async function main() {
-  const tool1 = new Tool("UPPER", "Convert text to uppercase", text => text.toUpperCase());
-  const task1 = new Task("id_1", "hello", async () => {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return "hello (async)";
-  }, [tool1], true);
+// Usage
+(async () => {
+  const tool1 = new Tool("UPPER", "Converts text to uppercase", text => text.toUpperCase());
+  const task1 = new Task("id_1", "hello", () => new Promise(resolve => setTimeout(() => resolve("hello (async)"), 2000)), [tool1], true);
   task1.setToolLimit(tool1.name, 2);
 
-  const task2 = new Task("id_2", "world", async () => {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return "world (async)";
-  });
+  const task2 = new Task("id_2", "world", () => new Promise(resolve => setTimeout(() => resolve("world (async)"), 2000)));
 
-  const task3 = new Task("id_3", "concatenate", async x => {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return `${x} concatenated (async)`;
-  }, [tool1]);
+  const task3 = new Task("id_3", "concatenate", x => new Promise(resolve => setTimeout(() => resolve(x + " concatenated (async)"), 2000)), [tool1]);
   task3.setToolLimit(tool1.name, 1);
 
   console.log("Running tasks in parallel:");
   const myProcess = new CustomProcess("Parallel Process", [task1, task2], true);
   const agent = new Agent();
-  let results = await agent.executeProcess(myProcess);
+  const results = await agent.executeProcess(myProcess);
   console.log("Results:", results.filter(result => !(result instanceof Error)));
   console.log("Execution history:", myProcess.getExecutionHistory().join(" "));
   console.log("Failures:", myProcess.getFailures().join("\n"));
 
   console.log("\nRunning tasks sequentially:");
-  myProcess.clearTasks();
-  myProcess.addTask(task1, 3);
-  myProcess.addTask(task2);
-  myProcess.addTask(task3);
-  myProcess.isParallel = false;
-  let results2 = await agent.executeProcess(myProcess);
+  const myProcess2 = new CustomProcess("Sequential Process");
+  myProcess2.addTask(task1, 3);
+  myProcess2.addTask(task2);
+  myProcess2.addTask(task3);
+  myProcess2.isParallel = false;
+  const results2 = await agent.executeProcess(myProcess2);
   console.log("Results:", results2.filter(result => !(result instanceof Error)));
-  console.log("Execution history:", myProcess.getExecutionHistory().join(" "));
-  console.log("Failures:", myProcess.getFailures().join("\n"));
+  console.log("Execution history:", myProcess2.getExecutionHistory().join(" "));
+  console.log("Failures:", myProcess2.getFailures().join("\n"));
 })();

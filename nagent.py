@@ -7,6 +7,7 @@ from datetime import datetime
 import re 
 from youtube_transcript_api import YouTubeTranscriptApi
 
+
 # Define constants
 AZURE_OPENAI_ENDPOINT = "https://.openai.azure.com"
 AZURE_OPENAI_API_KEY = "" 
@@ -16,228 +17,256 @@ DB_NAME = ""
 COLLECTION_NAME = "agent_history"
 
 class ConversationHistory:
-    """
-    Class to manage conversation history, either in memory or using MongoDB.
-    """
     def __init__(self, mongo_uri=None):
-        self.history = []  # Default to in-memory list if no Mongo connection
-
         # If MongoDB URI is provided, connect to MongoDB
         if mongo_uri:
             self.client = pymongo.MongoClient(mongo_uri)
             self.db = self.client[DB_NAME]
             self.collection = self.db[COLLECTION_NAME]
 
-    def add_to_history(self, text, is_user=True):
+    def add_to_history(self, history_object, is_user=True):
         """
         Add a new entry to the conversation history.
         """
-        timestamp = datetime.now().isoformat()
         # If MongoDB client is available, insert the conversation into MongoDB
         if self.client:
-            self.collection.insert_one({"text": text, "is_user": is_user, "timestamp": timestamp})
-        else:
-            self.history.append((text, is_user, timestamp))
-
-    def get_history(self):
-        """
-        Get the conversation history as a formatted string.
-        """
-        if self.client:
-            history = self.collection.find({}, sort=[("timestamp", pymongo.DESCENDING)]).limit(2)
-            return "\n".join([f"{item['timestamp']} - {'User' if item.get('is_user', False) else 'Assistant'}: {item['text']}" for item in history])
-        else:
-            return "\n".join([f"{timestamp} - {'User' if is_user else 'Assistant'}: {text}" for text, is_user, timestamp in self.history])
-
+            self.collection.insert_one(history_object)
+ 
 class Tool:
-    """
-    Base class for tools that the agent can use.
-    """
-    def __init__(self, name, description):
+    def __init__(self, name, description, operation):
         self.name = name
         self.description = description
-        self.openai = az_client
-        self.model = "gpt-4o"
+        self.operation = operation
+        self.usage_count = 0
 
     def run(self, input):
-        """
-        This method needs to be implemented by specific tool classes.
-        """
-        raise NotImplementedError("Tool must implement a run method")
-
-class SearchTool(Tool):
-    """
-    Tool to search the web using DuckDuckGo.
-    """
-    def run(self, input):
-        """
-        Runs a DuckDuckGo search and returns the results.
-        """
-        results = DDGS().text(str(input+" site:youtube.com video"), region="us-en", max_results=5)
-        return {"web_search_results": results, "input": input, "tool_id": "<" + self.name + ">"}
-
+        return self.operation(input)
 class Task:
-    """
-    Class representing a task for the agent to complete.
-    """
-    def __init__(self, description, agent, tools=[], input=None, name="", tool_use_required=False):
+    def __init__(self, task_id, description, run_function, tools=None, critical=False):
+        self.task_id = task_id
         self.description = description
-        self.agent = agent
-        self.tools = tools
-        self.output = None
-        self.input = input
-        self.name = name
-        self.tool_use_required = tool_use_required
+        self.run_function = run_function
+        self.tools = tools if tools else []
+        self.tool_limits = {}
+        self.critical = critical
 
-    async def run(self):
-        """
-        Runs the task using the agent and tools, optionally adding additional context.
-        """
-        # Use the agent and tools to perform the task
-        if self.input:
-            self.description += "\nUse this task_context to complete the task:\n[task_context]\n" + str(self.input.output) + "\n[end task_context]\n"
-        result = await self.agent.generate_text(self.description)
-        self.output = result
+    async def use_tool(self, tool_name, input):
+        tool = next((tool for tool in self.tools if tool.name == tool_name), None)
+        if not tool:
+            raise Exception(f"No tool found with name: {tool_name}")
+        if tool_name in self.tool_limits and self.tool_limits[tool_name] <= tool.usage_count:
+            raise Exception(f"Usage limit exceeded for tool: {tool.name} in task: {self.description}")
+        tool.usage_count += 1
+        return tool.run(input)
+
+    async def execute(self, input=None):
+        result = await self.run_function(input)
+        for tool in self.tools:
+            result = await self.use_tool(tool.name, result)
+        print(f"{datetime.now()} - Finished task: {self.description}")
         return result
 
-class CustomProcess:
-    """
-    Class representing a process that consists of multiple tasks.
-    """
-    def __init__(self, tasks):
-        self.tasks = tasks
+    def set_tool_limit(self, tool_name, limit):
+        self.tool_limits[tool_name] = limit
+class LLMTask(Task):
+    def __init__(self, task_id, description, run_function, tools=None, critical=False, llm=None, llm_model=None):
+        self.task_id = task_id
+        self.description = description
+        self.run_function = run_function
+        self.tools = tools if tools else []
+        self.tool_limits = {}
+        self.tool_info = {tool.name: tool.description for tool in tools}  # Generate dictionary of tool names and descriptions
+        self.critical = critical
+        self.llm = llm
+        self.llm_model = llm_model
 
+    async def use_tool(self, tool_name, input):
+        tool = next((tool for tool in self.tools if tool.name == tool_name), None)
+        if not tool:
+            raise Exception(f"No tool found with name: {tool_name}")
+        if tool_name in self.tool_limits and self.tool_limits[tool_name] <= tool.usage_count:
+            raise Exception(f"Usage limit exceeded for tool: {tool.name} in task: {self.description}")
+        tool.usage_count += 1
+        return tool.run(input)
+
+    async def execute(self, input=None):
+        print(f"{datetime.now()} - Starting task: {self.description}")
+        if self.llm:
+            ai_msg = self.llm.chat.completions.create(
+                model=self.llm_model,
+                messages=[
+                    {"role": "system", "content": """
+You are a helpful assistant that can help determine the best `tool` to use for a given `input` string.
+"""},
+                    {"role": "user", "content": f"""
+What is the best tool to use given this input
+
+Input: `{self.description}`
+
+[available tools]
+{self.tool_info}
+
+[IMPORTANT! ONLY SELECT A TOOL FROM THE AVAILABLE TOOLS! IF NO TOOL IS AVAILABLE, DO NOT MAKE IT UP!]
+
+[response format]
+JSON response must have: 
+ `tool_id` key with the `id` of the tool.
+ `tool_input` key with the input that should be passed to the tool.
+ `original_input` key with the original input: `{input}` 
+"""}
+                ], 
+                response_format={ "type": "json_object" }
+            )
+            result = json.loads(ai_msg.choices[0].message.content)
+            tool_input = result.get("tool_input")
+            tool_id = result.get("tool_id")
+            if result:
+                if self.run_function:
+                    result = await self.run_function(input)
+                if tool_id:
+                    for tool in self.tools:
+                        if tool.name in tool_id:
+                            result = await self.use_tool(tool.name, tool_input)
+                            break
+                else:
+                    # if no tool usage, lets respond with what we have
+                    result = self.llm.chat.completions.create(
+                        model=self.llm_model,
+                        messages=[
+                            {"role": "system", "content": f"""
+[task context]:
+{input}
+[end task context]
+
+[task description]:
+{self.description}
+
+[IMPORTANT!]
+USE THE AVAILABLE CONTEXT WHEN APPLICABLE TO GENERATE YOUR RESPONSE!
+"""}
+                        ]
+                    )
+                    result = result.choices[0].message.content
+        else:
+            result = await self.run_function(input)
+            for tool in self.tools:
+                result = await self.use_tool(tool.name, result)
+            print(f"{datetime.now()} - Finished task: {self.description}")
+        return result
+
+    def set_tool_limit(self, tool_name, limit):
+        self.tool_limits[tool_name] = limit
+
+class CustomProcess:
+    def __init__(self, name, tasks=None, is_parallel=False):
+        self.name = name
+        self.tasks = tasks if tasks else []
+        self.is_parallel = is_parallel
+        self.execution_history = []
+        self.failures = []
+    def process_to_json(self):
+        """
+        Convert a CustomProcess object to a JSON object.
+        """
+        process_dict = {
+            "name": self.name,
+            "is_parallel": self.is_parallel,
+            "tasks": []
+        }
+        
+        for task in self.tasks:
+            task_dict = {
+                "task_id": task.task_id,
+                "description": task.description,
+                "tools": []
+            }
+            
+            for tool in task.tools:
+                tool_dict = {
+                    "name": tool.name,
+                    "description": tool.description
+                }
+                task_dict["tools"].append(tool_dict)
+            
+            process_dict["tasks"].append(task_dict)
+        process_dict["timestamp"] = datetime.now()
+        process_dict["execution_history"] = self.get_execution_history()
+        process_dict["failures"] = self.get_failures()
+
+        return process_dict
     async def run(self):
-        """
-        Runs all tasks in the process asynchronously.
-        """
         results = []
-        for i, task in enumerate(self.tasks):
-            if task.input and task.input.output:
-                if task.name == "step_2":
-                    alltext = ""
-                    for yt_result in task.input.output["web_search_results"]:
-                        video_id = extract_youtube_id_from_href(yt_result["href"])
-                        if video_id:
-                            try:
-                                transcript = YouTubeTranscriptApi.get_transcript(video_id)
-                                if transcript:
-                                    alltext = (' '.join(item['text'] for item in transcript))
-                                    task.description += f"""\nYoutube Transcript for {video_id}:\n""" + alltext
-                                    print(f"Added transcript for {video_id}")
-                            except Exception as e:
-                                print(f"Error fetching transcript for {video_id}")
-            result = await task.run()  # Pass the result of the previous task to the next task
-            results.append(result)
-        print("Process complete.")
+        print(f"{datetime.now()} - Running tasks {'in parallel' if self.is_parallel else 'sequentially'} in process: {self.name}...")
+        if self.is_parallel:
+            tasks = [self.execute_task(task) for task in self.tasks]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+        else:
+            for task in self.tasks:
+                result = await self.execute_task(task, input="Execution history:"+" ".join(self.get_execution_history()))
+                if result is None and task.critical:
+                    break
+                results.append(result)
         return results
 
-class AdvancedAgent:
-    """
-    Advanced agent that can use tools and maintain conversation history.
-    """
-    def __init__(self, model="gpt-4o", history=None, tools=[]):
-        self.openai = az_client
-        self.model = model
-        self.history = history or ConversationHistory()  # Use provided history or create new one
-        self.tools = tools
-        self.tool_info = {tool.name: tool.description for tool in tools}  # Generate dictionary of tool names and descriptions
+    async def execute_task(self, task, input=None):
+        try:
+            result = await task.execute(input)
+            self.execution_history.append(str({
+                "task_id": task.task_id,
+                "description": task.description,
+                "result": result,
+                "task_input": input
+            }))
+            return result
+        except Exception as error:
+            print(f"{datetime.now()} - Error executing task: {task.description} in process: {self.name}", error)
+            self.failures.append(f"Failure in process {self.name}: {str(error)}")
+            if task.critical:
+                print(f"{datetime.now()} - Critical task failed. Exiting process: {self.name}")
+                return None
+            return error
 
-    async def generate_text(self, prompt):
-        """
-        Generates text using the provided prompt, considering conversation history and tool usage.
-        """
-        response = self.openai.chat.completions.create(
-            messages=[
-                {"role": "user", "content": "Given this prompt:`" + prompt + "`"},
-                {"role": "user", "content": """
-What tool would best help you to respond? If no best tool, just provide an answer to the best of your ability.
-Return an empty array if you don't want to use any tool for the `tools` key.
+    def add_task(self, task, repetitions=1):
+        self.tasks.extend([task]*repetitions)
 
-AVAILABLE TOOLS: """ + ', '.join([f'"{name}": "{desc}"' for name, desc in self.tool_info.items()]) + """
+    def clear_tasks(self):
+        self.tasks.clear()
+        self.execution_history.clear()
+        self.failures.clear()
 
-ALWAYS TRY TO USE YOUR TOOLS FIRST!
+    def get_execution_history(self):
+        return self.execution_history.copy()
 
-[RESPONSE CRITERIA]:
-- JSON object
-- Format: {"tools": ["tool_name"], "prompt": "user input without the command", "answer": "answer goes here"}
+    def get_failures(self):
+        return self.failures.copy()
 
-[EXAMPLE]:
-{"tools": ["search"], "prompt": "[user input without the command]", "answer": "<search>"}
-{"tools": [], "prompt": "[user input without the command]", "answer": "..."}
-"""}
-            ],
-            model=self.model,
-            response_format={"type": "json_object"}
-        )
-        # add question to history
-        self.history.add_to_history(prompt, is_user=True)
-
-        ai_response = json.loads(response.choices[0].message.content.strip())
-        if not ai_response.get("tools", []):
-            self.history.add_to_history(ai_response.get("answer", ""), is_user=False)
-            return ai_response
-        # Process the response (consider using tools here based on AI suggestion)
-        tools_to_use = ai_response.get("tools", [])
-        clean_prompt = ai_response.get("prompt", "")
-        for tool_name in tools_to_use:
-            tool = next((t for t in self.tools if t.name == tool_name), None)
-            if tool:
-                if tool_name == "search":
-                    ai_response = tool.run(clean_prompt)
-                
-
-        self.history.add_to_history(ai_response, is_user=False)
-        return ai_response
-
-
-def extract_youtube_id_from_href(href_url):
-    # Split the URL on the '=' character
-    url_parts = href_url.split('=')
-    # The video ID is the part after 'v', which is the last part of the URL
-    video_id = url_parts[-1]
-    return video_id
-
-
+class Agent:
+    def __init__(self):
+        self.memory = ConversationHistory(mongo_uri=MDB_URI)
+    async def execute_process(self, process):
+        results = await process.run()
+        self.memory.add_to_history(process.process_to_json())
+        return results
 
 async def main():
-    # Use a MongoDB connection string for persistent history (optional)
-    # Create tasks
-    user_input = input("Enter any topic: ")
-    task1 = Task(
-        description=str("Perform a search for: `"+user_input+"`"),
-        agent=AdvancedAgent(
-            tools=[SearchTool("search", "Search the web.")],
-            history=ConversationHistory(MDB_URI)
-        ),
-        name="step_1",
-        tool_use_required=True
-    )
-    task2 = Task(
-        description=f"""
-Write a concise bullet point report on `{user_input}` using the provided [task_context].
-IMPORTANT! Use the [task_context]
+    tool1 = Tool("UPPER", "Converts text to uppercase", lambda text: text.upper())
+    tool2 = Tool("DOUBLE", "Doubles the string", lambda text: text*2)
 
-[Response Criteria]:
-- Bullet point summary
-- Minimum of 100 characters
-- Use the provided [task_context]
+    taskX = LLMTask("id_X", "convert `x` to uppercase", None, [tool1,tool2], critical=True, llm=az_client, llm_model='gpt-4o')
+    taskY = LLMTask("id_Y", "double the string 'boom'", None, [tool1,tool2], critical=True, llm=az_client, llm_model='gpt-4o')
+    taskZ = LLMTask("id_Z", "combine the last two results", None, [], critical=True, llm=az_client, llm_model='gpt-4o')
 
-""",
-        agent=AdvancedAgent(
-            history=ConversationHistory(MDB_URI),
-            tools=[]
-        ),
-        input=task1,
-        name="step_2"
-    )
+    my_process1 = CustomProcess("Parallel Process", [taskX,taskY,taskZ], is_parallel=True)
+    agent1 = Agent()
+    results = await agent1.execute_process(my_process1)
+    print("Results:", [result for result in results if not isinstance(result, Exception)])
+    print("Tool Usage:", tool1.name, tool1.usage_count, tool2.name, tool2.usage_count)
+    tool1.usage_count = 0 #reset usage count
+    tool2.usage_count = 0 #reset usage count
+    my_process2 = CustomProcess("Sequential Process", [taskX,taskY,taskZ], is_parallel=False)
+    agent1 = Agent()
+    results = await agent1.execute_process(my_process2)
+    print("Results:", [result for result in results if not isinstance(result, Exception)])
+    print("Tool Usage:", tool1.name, tool1.usage_count, tool2.name, tool2.usage_count)
 
-    # Create process
-    my_process = CustomProcess([task1, task2])
-
-    # Run process and print the result
-    result = await my_process.run()
-    print(result[-1].get("answer", ""))
-
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(main())

@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 
 class Tool:
     def __init__(self, name, operation):
@@ -11,12 +12,10 @@ class Tool:
 
 class Task:
     def __init__(self, task_id, description, run_function, tools=None):
-        if tools is None:
-            tools = []
         self.task_id = task_id
         self.description = description
         self.run_function = run_function
-        self.tools = tools
+        self.tools = tools if tools else []
         self.tool_limits = {}
 
     async def use_tool(self, tool_name, input):
@@ -29,11 +28,11 @@ class Task:
         return tool.run(input)
 
     async def execute(self):
-        print(f"Starting task: {self.description}")
+        print(f"{datetime.now()} - Starting task: {self.description}")
         result = await self.run_function()
         for tool in self.tools:
             result = await self.use_tool(tool.name, result)
-        print(f"Finished task: {self.description}")
+        print(f"{datetime.now()} - Finished task: {self.description}")
         return result
 
     def set_tool_limit(self, tool_name, limit):
@@ -41,46 +40,52 @@ class Task:
 
 class CustomProcess:
     def __init__(self, tasks=None, is_parallel=False):
-        if tasks is None:
-            tasks = []
-        self.tasks = tasks
+        self.tasks = tasks if tasks else []
         self.is_parallel = is_parallel
         self.execution_history = []
 
     async def run(self):
         results = []
+        print(f"{datetime.now()} - Running tasks {'in parallel' if self.is_parallel else 'sequentially'}...")
         if self.is_parallel:
-            print("Running tasks in parallel...")
-            tasks = [task.execute() for task in self.tasks]
-            results = await asyncio.gather(*tasks)
+            tasks = [self.execute_task(task) for task in self.tasks]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
         else:
-            print("Running tasks sequentially...")
             for task in self.tasks:
-                try:
-                    result = await task.execute()
-                    results.append(result)
-                    self.execution_history.append(f"Task executed: {task.description}")
-                except Exception as error:
-                    print(f"Error executing task: {task.description}", error)
+                result = await self.execute_task(task)
+                results.append(result)
         return results
 
+    async def execute_task(self, task):
+        try:
+            result = await task.execute()
+            self.execution_history.append(f"Task executed: {task.description}")
+            return result
+        except Exception as error:
+            print(f"{datetime.now()} - Error executing task: {task.description}", error)
+            return error
+
     def add_task(self, task, repetitions=1):
-        for _ in range(repetitions):
-            self.tasks.append(task)
+        self.tasks.extend([task]*repetitions)
 
     def clear_tasks(self):
-        self.tasks = []
-        self.execution_history = []
+        self.tasks.clear()
+        self.execution_history.clear()
 
     def get_execution_history(self):
         return self.execution_history.copy()
 
 class Agent:
     def __init__(self):
-        pass
+        self.failures = []
 
     async def execute_process(self, process):
-        return await process.run()
+        results = await process.run()
+        self.failures.extend(str(result) for result in results if isinstance(result, Exception))
+        return results
+
+    def get_failures(self):
+        return self.failures.copy()
 
 async def main():
     tool1 = Tool("UPPER", lambda text: text.upper())
@@ -93,8 +98,9 @@ async def main():
     my_process = CustomProcess([task1, task2], True)
     agent = Agent()
     results = await agent.execute_process(my_process)
-    print("Results:", results)
+    print("Results:", [result for result in results if not isinstance(result, Exception)])
     print("Execution history:", " ".join(my_process.get_execution_history()))
+    print("Failures:", "\n".join(agent.get_failures()))
 
     print("\nRunning tasks sequentially:")
     my_process.clear_tasks()
@@ -102,7 +108,8 @@ async def main():
     my_process.add_task(task2)
     my_process.is_parallel = False
     results2 = await agent.execute_process(my_process)
-    print("Results:", results2)
+    print("Results:", [result for result in results2 if not isinstance(result, Exception)])
     print("Execution history:", " ".join(my_process.get_execution_history()))
+    print("Failures:", "\n".join(agent.get_failures()))
 
 asyncio.run(main())

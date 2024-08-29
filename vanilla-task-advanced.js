@@ -32,10 +32,12 @@ class Tool {
     }
   
     async execute() {
+      console.log(`Starting task: ${this.description}`);
       let result = await this.runFunction();
       for (const tool of this.tools) {
         result = this.useTool(tool.name, result);
       }
+      console.log(`Finished task: ${this.description}`);
       return result;
     }
   
@@ -54,21 +56,21 @@ class Tool {
     async run() {
       const results = [];
       if (this.isParallel) {
+        console.log("Running tasks in parallel...");
         const promises = this.tasks.map(task => task.execute().then(result => {
           this.executionHistory.push(`Task executed: ${task.description}`);
-          console.log(`Task executed: ${task.description}`);
           return result;
         }).catch(error => {
           console.error(`Error executing task: ${task.description}`, error);
         }));
         results.push(...await Promise.all(promises));
       } else {
+        console.log("Running tasks sequentially...");
         for (const task of this.tasks) {
           try {
             const result = await task.execute();
             results.push(result);
             this.executionHistory.push(`Task executed: ${task.description}`);
-            console.log(`Task executed: ${task.description}`);
           } catch (error) {
             console.error(`Error executing task: ${task.description}`, error);
           }
@@ -130,15 +132,6 @@ class Tool {
     myProcess.isParallel = false;
     const results2 = await agent.executeProcess(myProcess);
     console.log("Results:", results2);
-    console.log("Execution history:", myProcess.getExecutionHistory().join(" "));
-    
-    console.log("\nRunning tasks sequentially with increased tool limits:");
-    myProcess.clear_tasks();
-    task1.setToolLimit(tool1.name, 10);
-    myProcess.add_task(task1, 3);
-    myProcess.add_task(task2);
-    const results3 = await agent.executeProcess(myProcess);
-    console.log("Results:", results3);
     console.log("Execution history:", myProcess.getExecutionHistory().join(" "));
   }
   

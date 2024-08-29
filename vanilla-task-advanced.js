@@ -1,6 +1,7 @@
 class Tool {
-  constructor(name, operation) {
+  constructor(name, description, operation) {
       this.name = name;
+      this.description = description;
       this.operation = operation;
       this.usageCount = 0;
   }
@@ -120,7 +121,7 @@ class Agent {
 }
 
 (async function main() {
-  const tool1 = new Tool("UPPER", text => text.toUpperCase());
+  const tool1 = new Tool("UPPER", "Convert text to uppercase", text => text.toUpperCase());
   const task1 = new Task("id_1", "hello", async () => {
       await new Promise(resolve => setTimeout(resolve, 2000));
       return "hello (async)";

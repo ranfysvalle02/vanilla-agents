@@ -2,8 +2,9 @@ import asyncio
 from datetime import datetime
 
 class Tool:
-    def __init__(self, name, operation):
+    def __init__(self, name, description, operation):
         self.name = name
+        self.description = description
         self.operation = operation
         self.usage_count = 0
 
@@ -99,7 +100,7 @@ class Agent:
         return results
 
 async def main():
-    tool1 = Tool("UPPER", lambda text: text.upper())
+    tool1 = Tool("UPPER", "Converts text to uppercase", lambda text: text.upper())
     task1 = Task("id_1", "hello", lambda _: asyncio.sleep(2, "hello (async)"), [tool1], critical=True)
     task1.set_tool_limit(tool1.name, 2)
 

@@ -1,229 +1,198 @@
-## Building an Advanced AI Agent with OpenAI, MongoDB, and DuckDuckGo
+## Building an Advanced AI Agent with MongoDB as Memory
 
 ![AI Agent Overview](https://upload.wikimedia.org/wikipedia/commons/a/aa/AI_Agent_Overview.png)
 
-## Introducing `vanilla-agents`
+Crafting a generative AI *agent* doesn't require a mountain of complex libraries. With just a few well-placed lines of code, you can build a custom AI agent that can implement custom processes/workflows. This guide will equip you with the building blocks to forge your very own generative AI agent from scratch, giving you the freedom to experiment and innovate.
 
-`vanilla-agents` provides a lightweight and customizable implementation that empowers you to leverage the capabilities of your preferred large language model (LLM) provider without the need for additional, often bloated libraries. 
+## Understanding Agent Abstraction
 
-The flow of operation is as follows: User Input -> Start Process -> Task Execution -> Tool Selection -> Complete Process -> Response. With just a few well-placed lines of code, you can take control and build a custom AI agent that bends to your will and can implement custom processes/workflows. 
+Agent Abstraction is a design pattern that allows us to automate complex workflows. It involves the creation of an 'Agent' that can execute a 'Process'. A Process is a series of 'Tasks', and each Task can utilize a set of 'Tools'. 
 
-## Breaking Down the Tasks into a Custom Process
+### Breaking Down the Process: Tasks and Tools
 
-The system is designed to perform two main tasks:
+A process is essentially a recipe for automation. It's a series of steps, each focusing on a specific action. These steps are called tasks. 
 
-* **Task 1: Search for YouTube Videos**
-  * This task involves identifying relevant YouTube videos based on a given query or topic.
-* **Task 2: Write a Report**
-  * This task requires writing a report based on the content of the videos found in Task 1.
+Let's take a real-world example. Imagine a process for automatically generating social media posts from blog articles. One task could be summarizing the article, another converting the summary to an engaging format, and a final one might be posting it to your social media channels.
 
-These tasks are combined into a cohesive workflow using a `CustomProcess`:
+Each task can leverage a set of tools to complete its job.  In our social media example, tools might include a summarization engine, a text formatting script, and a social media posting API.
 
-1. **Retrieves Videos:** The first task searches for videos based on a user-provided query.
-2. **Writes a Report:** The second task generates a report from the content of the retrieved videos.
+### Sequential vs. Parallel Execution: A Closer Look
 
-Here's how these tasks are defined in the code:
+The execution strategy of tasks is a crucial aspect of workflow automation. 
+
+The agent can execute tasks in two primary ways: Sequentially and in Parallel. 
+
+* **Sequential Execution:** This approach is akin to following a recipe. Each step (or task) must be completed in a specific order before proceeding to the next. For instance, in a content creation workflow, the agent might first summarize an article, then format the summary into a social media-friendly text, and finally, post it on the designated platform. Each task relies on the output of the previous one, creating a chain of dependencies. 
+
+* **Parallel Execution:** This strategy is comparable to prepping ingredients for a meal. Several steps can occur simultaneously, enhancing efficiency. The agent can employ parallel execution for tasks that are independent, i.e., their outputs don't influence each other. For example, the agent could summarize an article while concurrently sending a text notification about the start of the process. Both tasks are independent, allowing them to run side-by-side without waiting for the other to complete.
+
+Choosing between sequential and parallel execution depends on the nature of the tasks and their interdependencies. While parallel execution can speed up the process, it requires careful management to ensure that all tasks are completed correctly. Conversely, sequential execution might be slower but offers a straightforward, step-by-step progression that's easier to manage and debug.
+
+**Caveats to Consider:**
+
+* **Critical Tasks:** Some tasks might be essential for the entire workflow to function properly. The agent can be programmed to handle these critical tasks with priority and halt the process if they fail.
+* **Tool Usage Limits:**  Sometimes, using a tool too frequently might have limitations (e.g., exceeding API quotas). The agent can be configured to set usage limits on specific tools within a process.
+
+### Benefits of Agent Abstraction
+
+* **Reduced Manual Work:**  Agents automate repetitive tasks, freeing up your time for more strategic activities.
+* **Improved Efficiency:**  Automation optimizes workflows, leading to faster completion times.
+* **Increased Accuracy:**  Agents can minimize human error by consistently following defined processes.
+* **Intelligent Decision-Making:** LLMs enable agents to choose the best tool for each task, further enhancing automation effectiveness.
+
+### Agent
+
+An Agent is the primary executor. It is responsible for running the entire process and managing the results. In our Python example, the Agent class has a memory attribute that stores the history of executed processes. This memory is implemented using MongoDB, a popular NoSQL database, which allows the agent to remember past conversations and learn from them.
 
 ```python
-task1 = Task(
-    description=str("Perform a search for: `"+user_input+"`"),
-    agent=AdvancedAgent(
-        tools=[SearchTool("search", "Search the web.")],
-        history=ConversationHistory(MDB_URI)
-    ),
-    name="step_1",
-    tool_use_required=True
-)
+class Agent:
+    def __init__(self):
+        self.memory = ConversationHistory(mongo_uri=MDB_URI)
 
-task2 = Task(
-    description=f"""
-Write a concise bullet point report on `{user_input}` using the provided [task_context].
-IMPORTANT! Use the [task_context]
-
-[Response Criteria]:
-- Bullet point summary
-- Minimum of 100 characters
-- Use the provided [task_context]
-
-""",
-    agent=AdvancedAgent(
-        history=ConversationHistory(MDB_URI),
-        tools=[]
-    ),
-    input=task1,
-    name="step_2"
-)
+    async def execute_process(self, process):
+        results = await process.run()
+        self.memory.add_to_history(process.process_to_json())
+        return results
 ```
 
-The `CustomProcess` class allows you to chain tasks together, creating more complex workflows. The `run` method of the `CustomProcess` class executes all tasks in the process asynchronously. Here's how the `CustomProcess` is defined and used in the code:
+### Process
+
+A Process is a collection of tasks that the agent executes. It can be run in parallel or sequentially, depending on the requirements. The Process class in our example has attributes like name, tasks, is_parallel, execution_history, and failures. It also includes methods for running the process, executing individual tasks, and managing the execution history and failures.
 
 ```python
 class CustomProcess:
-    """
-    Class representing a process that consists of multiple tasks.
-    """
-    def __init__(self, tasks):
-        self.tasks = tasks
-
-    async def run(self):
-        """
-        Runs all tasks in the process asynchronously.
-        """
-        results = []
-        for i, task in enumerate(self.tasks):
-            result = await task.run()  # Pass the result of the previous task to the next task
-            results.append(result)
-        print("Process complete.")
-        return results
-
-# Create process
-my_process = CustomProcess([task1, task2])
-
-# Run process and print the result
-result = await my_process.run()
-print(result[-1].get("answer", ""))
+    def __init__(self, name, tasks=None, is_parallel=False):
+        self.name = name
+        self.tasks = tasks if tasks else []
+        self.is_parallel = is_parallel
+        self.execution_history = []
+        self.failures = []
 ```
 
-In this example, `my_process` is an instance of `CustomProcess` that includes `task1` and `task2`. When `my_process.run()` is called, it executes `task1` and `task2` in sequence. The result of each task is stored in the `results` list, and the final result is printed out.
+### Task
 
-## Key Components and How They Work
+A Task is a single unit of work in a process. Each task can use one or more tools to accomplish its goal. In our example, we have a class called LLMTask (Language Learning Model Task) that represents a task. This class includes methods for using a tool and executing the task. It also includes a method for setting a usage limit for a tool.
+
+```python
+class LLMTask(Task):
+    def __init__(self, task_id, description, run_function, tools=None, critical=False, llm=None, llm_model=None):
+        self.task_id = task_id
+        self.description = description
+        self.run_function = run_function
+        self.tools = tools if tools else []
+        self.tool_limits = {}
+        self.tool_info = {tool.name: tool.description for tool in tools}  # Generate dictionary of tool names and descriptions
+        self.critical = critical
+        self.llm = llm
+        self.llm_model = llm_model
+```
 
 ### Tools
 
-`Tools` are the fundamental units of functionality. They are akin to specialized capabilities that the agent can utilize. For instance, the `SearchTool` in our code leverages DuckDuckGo to retrieve information from the web. 
-
-Each tool is a class that inherits from the base `Tool` class and implements a `run` method. This method encapsulates the specific functionality of the tool. Here's how the `SearchTool` is defined:
+Tools are the resources or operations that a task can use to achieve its goal. In our example, we have a Tool class with attributes like name, description, operation, and usage_count. The operation attribute is a function that defines what the tool does.
 
 ```python
-class SearchTool(Tool):
-    """
-    Tool to search the web using DuckDuckGo.
-    """
-    def run(self, input):
-        """
-        Runs a DuckDuckGo search and returns the results.
-        """
-        results = DDGS().text(str(input+" site:youtube.com video"), region="us-en", max_results=5)
-        return {"web_search_results": results, "input": input, "tool_id": "<" + self.name + ">"}
+class Tool:
+    def __init__(self, name, description, operation):
+        self.name = name
+        self.description = description
+        self.operation = operation
+        self.usage_count = 0
 ```
 
-### Tasks
+## Sequential vs Parallel Execution
 
-`Tasks` are the specific actions that the agent can perform. They are defined as instances of the `Task` class, which includes a `run` method that defines how the task is performed. Each task is designed to use one or more tools to accomplish a specific goal. 
+One of the key aspects to consider when designing a process is whether the tasks should be executed sequentially or in parallel. 
 
-### AdvancedAgent
+Sequential execution means that the tasks are executed one after the other. This is useful when the tasks are dependent on each other. For example, if Task B requires the output of Task A, they must be executed sequentially.
 
-The `AdvancedAgent` is the core component that orchestrates the tools and tasks. It's responsible for understanding user prompts, selecting appropriate tools, and managing the conversation history. The agent uses the OpenAI API to generate text based on a given prompt and can use tools to assist in generating responses.
+Parallel execution, on the other hand, means that multiple tasks are executed at the same time. This is useful when the tasks are independent and can be run simultaneously to save time. However, it's important to handle exceptions properly to prevent one task's failure from affecting others.
 
-```python
-class AdvancedAgent:
-    """
-    Advanced agent that can use tools and maintain conversation history.
-    """
-    def __init__(self, model="gpt-4o", history=None, tools=[]):
-        self.openai = az_client
-        self.model = model
-        self.history = history or ConversationHistory()  # Use provided history or create new one
-        self.tools = tools
-        self.tool_info = {tool.name: tool.description for tool in tools}  # Generate dictionary of tool names and descriptions
-```
-
-### CustomProcess
-
-The `CustomProcess` class allows you to chain tasks together, creating more complex workflows. For instance, you could define a process that first searches for information and then writes a report based on the search results. The `run` method of the `CustomProcess` class executes all tasks in the process asynchronously.
+In our Python example, we have a CustomProcess class that can execute tasks either sequentially or in parallel, based on the is_parallel attribute.
 
 ```python
-class CustomProcess:
-    """
-    Class representing a process that consists of multiple tasks.
-    """
-    def __init__(self, tasks):
-        self.tasks = tasks
-```
-
-### Memory
-
-Memory in this context refers to the conversation history managed by the `ConversationHistory` class. This class can either store the history in memory or use MongoDB to persist the history. While the memory doesn't directly influence the agent's responses in this implementation, it plays a crucial role in maintaining a record of the agent's activities.
-
-```python
-class ConversationHistory:
-    """
-    Class to manage conversation history, either in memory or using MongoDB.
-    """
-    def __init__(self, mongo_uri=None):
-        self.history = []  # Default to in-memory list if no Mongo connection
-
-        # If MongoDB URI is provided, connect to MongoDB
-        if mongo_uri:
-            self.client = pymongo.MongoClient(mongo_uri)
-            self.db = self.client[DB_NAME]
-            self.collection = self.db[COLLECTION_NAME]
-```
-
-
-## How the Agent Uses the CustomProcess
-
-In this example, the agent uses the `CustomProcess` to execute a series of tasks in a specific order. Each task in the process is executed asynchronously, and the results of each task are stored and can be used as input for subsequent tasks. 
-
-The agent creates a `CustomProcess` that includes two tasks: `task1` and `task2`. When the agent calls `my_process.run()`, it executes `task1` and `task2` in sequence. The result of each task is stored in the `results` list, and the final result is printed out.
-
-## MongoDB as Data Platform
-
-The agent interacts with MongoDB through the `ConversationHistory` class. This class is used to manage the conversation history, either in memory or using MongoDB. If a MongoDB URI is provided, the class connects to MongoDB and uses it to persist the conversation history. 
-
-The agent talks to MongoDB every time it adds a new entry to the conversation history. This happens in the `add_to_history` method of the `ConversationHistory` class:
-
-```python
-def add_to_history(self, text, is_user=True):
-    """
-    Add a new entry to the conversation history.
-    """
-    timestamp = datetime.now().isoformat()
-    # If MongoDB client is available, insert the conversation into MongoDB
-    if self.client:
-        self.collection.insert_one({"text": text, "is_user": is_user, "timestamp": timestamp})
+async def run(self):
+    results = []
+    print(f"{datetime.now()} - Running tasks {'in parallel' if self.is_parallel else 'sequentially'} in process: {self.name}...")
+    if self.is_parallel:
+        tasks = [self.execute_task(task) for task in self.tasks]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
     else:
-        self.history.append((text, is_user, timestamp))
+        for task in self.tasks:
+            result = await self.execute_task(task, input="Execution history:"+" ".join(self.get_execution_history()))
+            if result is None and task.critical:
+                break
+            results.append(result)
+    return results
 ```
 
-## Creating Your Own Tool or Task
+## A Complete Example
 
-Creating your own tool or task is straightforward. 
+Let's put all these concepts together in a complete example. We'll create an agent that can execute a process consisting of three tasks. Each task will use one or two tools, and the tasks will be executed both sequentially and in parallel.
 
-To create a new tool, you need to define a new class that inherits from the `Tool` class and implement the `run` method. This method should encapsulate the specific functionality of your tool. Here's a template you can use:
+First, we'll define two tools: one that converts text to uppercase and another that doubles the string.
 
 ```python
-class MyTool(Tool):
-    """
-    My custom tool.
-    """
-    def run(self, input):
-        """
-        Implement the functionality of the tool here.
-        """
-        # Your code here
-        return result
+tool1 = Tool("UPPER", "Converts text to uppercase", lambda text: text.upper())
+tool2 = Tool("DOUBLE", "Doubles the string", lambda text: text*2)
 ```
 
-To create a new task, you need to create an instance of the `Task` class and provide the necessary parameters. This includes a description of the task, the agent that will perform the task, any tools that the task should use, and any input that the task requires. Here's a template you can use:
+Next, we'll define three tasks. The first task will convert a string to uppercase, the second will double a string, and the third will combine the results of the first two tasks. Each task will use the LLM to determine the best tool to use.
 
 ```python
-my_task = Task(
-    description="My task description",
-    agent=my_agent,
-    tools=[my_tool],
-    input=my_input,
-    name="my_task"
-)
+taskX = LLMTask("id_X", "convert `x` to uppercase", None, [tool1,tool2], critical=True, llm=az_client, llm_model='gpt-4o')
+taskY = LLMTask("id_Y", "double the string 'boom'", None, [tool1,tool2], critical=True, llm=az_client, llm_model='gpt-4o')
+taskZ = LLMTask("id_Z", "combine the last two results", None, [], critical=True, llm=az_client, llm_model='gpt-4o')
 ```
 
-## The Benefits of a Lightweight Approach
+Then, we'll create two processes: one that executes the tasks in parallel and another that executes them sequentially.
 
-* **Flexibility:** You have full control over the components and their interactions. This allows you to tailor the agent to your specific needs.
-* **Efficiency:** By avoiding unnecessary dependencies, you can maintain a lean and efficient implementation.
-* **Customization:** You can easily add or remove tools and tasks as required, making the AI highly adaptable.
-* **Control:** You have direct access to the code, enabling you to fine-tune behavior and troubleshoot issues.
+```python
+my_process1 = CustomProcess("Parallel Process", [taskX,taskY,taskZ], is_parallel=True)
+my_process2 = CustomProcess("Sequential Process", [taskX,taskY,taskZ], is_parallel=False)
+```
+
+Finally, we'll create an agent and have it execute both processes.
+
+```python
+agent1 = Agent()
+results = await agent1.execute_process(my_process1)
+print("Results:", [result for result in results if not isinstance(result, Exception)])
+print("Tool Usage:", tool1.name, tool1.usage_count, tool2.name, tool2.usage_count)
+
+tool1.usage_count = 0 #reset usage count
+tool2.usage_count = 0 #reset usage count
+
+results = await agent1.execute_process(my_process2)
+print("Results:", [result for result in results if not isinstance(result, Exception)])
+print("Tool Usage:", tool1.name, tool1.usage_count, tool2.name, tool2.usage_count)
+```
+
+## Output
+
+```
+2024-08-29 16:58:54.419962 - Running tasks in parallel in process: Parallel Process...
+2024-08-29 16:58:54.420050 - Starting task: convert `x` to uppercase
+2024-08-29 16:58:55.848406 - Starting task: double the string 'boom'
+2024-08-29 16:58:56.458672 - Starting task: combine the last two results
+Results: ['X', 'boomboom', 'Since no specific results were provided in the task context, I can illustrate how to combine two results generally. For example:\n\nResult 1: "The company’s revenue increased by 10% in Q1."\nResult 2: "Customer satisfaction scores improved significantly during the same period."\n\nCombined result:\n"The company experienced a 10% increase in revenue during Q1, which was accompanied by a significant improvement in customer satisfaction scores."\n\nIf you provide the specific results you want to combine, I can create a more tailored response.']
+Tool Usage: UPPER 1 DOUBLE 1
+2024-08-29 16:58:59.366954 - Running tasks sequentially in process: Sequential Process...
+2024-08-29 16:58:59.367034 - Starting task: convert `x` to uppercase
+2024-08-29 16:59:40.097787 - Starting task: double the string 'boom'
+2024-08-29 16:59:41.213039 - Starting task: combine the last two results
+Results: ['X', 'boomboom', 'Xboomboom']
+Tool Usage: UPPER 1 DOUBLE 1
+```
 
 ## Conclusion
 
-Now that you've seen the foundation for building your own AI agent, it's time to experiment!
+In this guide, we've demonstrated how to construct an advanced AI agent using Python, OpenAI, MongoDB, and DuckDuckGo. By leveraging these technologies, we've created a flexible, efficient, and customizable AI agent capable of performing complex tasks and workflows. We've shown how to manage conversation history, implement various tools and tasks, and orchestrate these components using an advanced agent and custom processes.
+
+Agent Abstraction is a powerful concept that can greatly simplify workflow automation. By breaking down a process into manageable tasks and equipping them with the necessary tools, we can create a flexible and efficient system. Now that you've seen the foundation for building your own AI agent, it's time to experiment! Explore different tools, tasks, and workflows to tailor your agent to your specific needs. Remember, the possibilities are endless!
+
+**What will you build?**
+
+In this guide, we've demonstrated how to construct an advanced AI agent using Python, OpenAI, MongoDB, and DuckDuckGo. By leveraging these technologies, we've created a flexible, efficient, and customizable AI agent capable of performing complex tasks and workflows. We've shown how to manage conversation history, implement various tools and tasks, and orchestrate these components using an advanced agent and custom processes.
+
+Agent Abstraction is a powerful concept that can greatly simplify workflow automation. By breaking down a process into manageable tasks and equipping them with the necessary tools, we can create a flexible and efficient system. Now that you've seen the foundation for building your own AI agent, it's time to experiment! Explore different tools, tasks, and workflows to tailor your agent to your specific needs. Remember, the possibilities are endless!

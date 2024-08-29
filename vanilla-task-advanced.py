@@ -41,29 +41,25 @@ class Task:
         self.tool_limits[tool_name] = limit
 
 class CustomProcess:
-    def __init__(self, name, tasks=None, is_parallel=False, entrypoint=None):
+    def __init__(self, name, tasks=None, is_parallel=False):
         self.name = name
         self.tasks = tasks if tasks else []
         self.is_parallel = is_parallel
         self.execution_history = []
         self.failures = []
-        self.entrypoint = entrypoint if entrypoint else lambda x: x
 
-    async def run(self, input_string=None):
+    async def run(self):
         results = []
-        input_string = self.entrypoint(input_string)
         print(f"{datetime.now()} - Running tasks {'in parallel' if self.is_parallel else 'sequentially'} in process: {self.name}...")
         if self.is_parallel:
-            tasks = [self.execute_task(task, input_string) for task in self.tasks]
+            tasks = [self.execute_task(task) for task in self.tasks]
             results = await asyncio.gather(*tasks, return_exceptions=True)
         else:
-            previous_result = input_string
             for task in self.tasks:
-                result = await self.execute_task(task, previous_result)
+                result = await self.execute_task(task)
                 if result is None and task.critical:
                     break
                 results.append(result)
-                previous_result = result
         return results
 
     async def execute_task(self, task, input=None):
@@ -97,8 +93,8 @@ class Agent:
     def __init__(self):
         pass
 
-    async def execute_process(self, process, input_string=None):
-        results = await process.run(input_string)
+    async def execute_process(self, process):
+        results = await process.run()
         return results
 
 async def main():
@@ -112,20 +108,20 @@ async def main():
     task3.set_tool_limit(tool1.name, 1)
 
     print("Running tasks in parallel:")
-    my_process = CustomProcess("Parallel Process", [task1, task2], True, lambda x: x.upper())
+    my_process = CustomProcess("Parallel Process", [task1, task2], True)
     agent = Agent()
-    results = await agent.execute_process(my_process, "hello world")
+    results = await agent.execute_process(my_process)
     print("Results:", [result for result in results if not isinstance(result, Exception)])
     print("Execution history:", " ".join(my_process.get_execution_history()))
     print("Failures:", "\n".join(my_process.get_failures()))
 
     print("\nRunning tasks sequentially:")
-    my_process = CustomProcess("Sequential Process", entrypoint=lambda x: x.lower())
+    my_process = CustomProcess("Sequential Process")
     my_process.add_task(task1,3)
     my_process.add_task(task2)
     my_process.add_task(task3)
     my_process.is_parallel = False
-    results2 = await agent.execute_process(my_process, "HELLO WORLD")
+    results2 = await agent.execute_process(my_process)
     print("Results:", [result for result in results2 if not isinstance(result, Exception)])
     print("Execution history:", " ".join(my_process.get_execution_history()))
     print("Failures:", "\n".join(my_process.get_failures()))

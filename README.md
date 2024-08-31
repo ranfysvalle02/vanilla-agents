@@ -4,6 +4,8 @@
 
 _inspired by some of the nuances I stumbled upon [here](https://github.com/ranfysvalle02/crewai-flask-autoresearch/)_
 
+_check out the agent abstraction using prefect for task/flow management [here](https://github.com/ranfysvalle02/the-prefect-agent)
+
 Crafting a generative AI *agent* doesn't require a mountain of complex libraries. With just a few well-placed lines of code, you can build a custom AI agent that can implement custom processes/workflows. This guide will equip you with the building blocks to forge your very own generative AI agent from scratch, giving you the freedom to experiment and innovate.
 
 ## Understanding Agent Abstraction
